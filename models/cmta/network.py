@@ -305,14 +305,6 @@ class CMTA(nn.Module):
                 self.hyperbolic_relu,
                 self.hyperbolic_fc2
             )
-        elif self.fusion == "hyperbolic":
-            self.hyperbolic_mm = nn.Sequential(
-                self.hyperbolic_fc1,
-                self.hyperbolic_relu,
-                self.hyperbolic_fc2,
-                self.hyperbolic_relu,
-                self.hyperbolic_fc2
-            )
             self.mm = nn.Sequential(
                 *[nn.Linear(hidden[-1] * 2, hidden[-1]), nn.ReLU(), nn.Linear(hidden[-1], hidden[-1]), nn.ReLU()]
             )
