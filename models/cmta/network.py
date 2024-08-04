@@ -227,7 +227,7 @@ from hypll import nn as hnn
 manifold = PoincareBall(c=Curvature(requires_grad=True))
 
 class CMTA(nn.Module):
-    def __init__(self, omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4, fusion="concat", model_size="small",alpha=0.5,beta=0.5,tokenS="both",GT=0.5,PT=0.5,HRate=1e-8):
+    def __init__(self, omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4, fusion="concat", model_size="small",alpha=0.5,beta=0.5,tokenS="both",GT=0.5,PT=0.5,HRate=1e-8,BMoE=False):
         super(CMTA, self).__init__()
 
         self.omic_sizes = omic_sizes
@@ -239,6 +239,7 @@ class CMTA(nn.Module):
         self.GT=GT
         self.PT=PT
         self.HRate=HRate
+        self.BMoE=BMoE
         ###
         self.size_dict = {
             "pathomics": {"small": [1024, 256, 256], "large": [1024, 512, 256]},
@@ -269,9 +270,9 @@ class CMTA(nn.Module):
         self.pathomics_decoder = Transformer_P(feature_dim=hidden[-1])
 
         # P->G Attention
-        self.P_in_G_Att = MultiheadAttention(embed_dim=256, num_heads=1)
+        self.P_in_G_Att = MultiheadAttention(embed_dim=256, num_heads=1,BMoE=self.BMoE)
         # G->P Attention
-        self.G_in_P_Att = MultiheadAttention(embed_dim=256, num_heads=1)
+        self.G_in_P_Att = MultiheadAttention(embed_dim=256, num_heads=1,BMoE=self.BMoE)
 
         # Pathomics Transformer Decoder
         # Encoder

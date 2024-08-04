@@ -101,6 +101,7 @@ def main(args):
                 "GT":args.GT,
                 "PT":args.PT,
                 "HRate":args.HRate,
+                "BMoE":args.BMoE,
             }
             model = CMTA(**model_dict)
             criterion = define_loss(args)

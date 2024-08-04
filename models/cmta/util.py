@@ -471,6 +471,7 @@ class MMoE(nn.Module):
 
 
 def multi_head_attention_forward(
+        BMoE: bool,
         query: Tensor,
         key: Tensor,
         value: Tensor,
@@ -768,9 +769,11 @@ def multi_head_attention_forward(
     attn_output = torch.bmm(attn_output_weights, v)
     assert list(attn_output.size()) == [bsz * num_heads, tgt_len, head_dim]
     attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
-    moe = MMoE(input_dim=attn_output.size(2), num_experts=4, k=2, weight=out_proj_weight, bias=out_proj_bias).to(attn_output.device)
-    # attn_output = F.linear(attn_output, out_proj_weight, out_proj_bias)
-    attn_output=moe(attn_output)
+    if BMoE:
+        moe = MMoE(input_dim=attn_output.size(2), num_experts=4, k=2, weight=out_proj_weight, bias=out_proj_bias).to(attn_output.device)
+        attn_output=moe(attn_output)
+    else:
+        attn_output = F.linear(attn_output, out_proj_weight, out_proj_bias)
 
     if need_weights:
         if need_raw:
@@ -820,10 +823,11 @@ class MultiheadAttention(Module):
 
     def __init__(
             self, embed_dim, num_heads, dropout=0.0, bias=True, add_bias_kv=False, add_zero_attn=False, kdim=None,
-            vdim=None
+            vdim=None,BMoE=False
     ):
         super(MultiheadAttention, self).__init__()
         self.embed_dim = embed_dim
+        self.BMoE=BMoE
         self.kdim = kdim if kdim is not None else embed_dim
         self.vdim = vdim if vdim is not None else embed_dim
         self._qkv_same_embed_dim = self.kdim == embed_dim and self.vdim == embed_dim
@@ -883,7 +887,7 @@ class MultiheadAttention(Module):
 
         super(MultiheadAttention, self).__setstate__(state)
 
-    def forward(self, query, key, value, key_padding_mask=None, need_weights=True, need_raw=True, attn_mask=None):
+    def forward(self,query, key, value, key_padding_mask=None, need_weights=True, need_raw=True, attn_mask=None):
         r"""
         Args:
             query, key, value: map a query and a set of key-value pairs to an output.
@@ -925,6 +929,7 @@ class MultiheadAttention(Module):
         """
         if not self._qkv_same_embed_dim:
             return multi_head_attention_forward(
+                self.BMoE,
                 query,
                 key,
                 value,
@@ -950,6 +955,7 @@ class MultiheadAttention(Module):
             )
         else:
             return multi_head_attention_forward(
+                self.BMoE,
                 query,
                 key,
                 value,
