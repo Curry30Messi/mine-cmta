@@ -424,6 +424,19 @@ class MFFNExpert(nn.Module):
         x = self.bn2(self.fc2(x))
         return x
 
+
+class MFFNExpert(nn.Module):
+    def __init__(self, input_dim, output_dim, weight=None, bias=None):
+        super(MFFNExpert, self).__init__()
+        self.fc = nn.Linear(input_dim, output_dim)
+        if weight is not None:
+            self.fc.weight = weight
+        if bias is not None:
+            self.fc.bias = bias
+
+    def forward(self, x):
+        return self.fc(x)
+
 class MMoE(nn.Module):
     def __init__(self, input_dim=512, num_experts=4, k=2, weight=None, bias=None):
         super(MMoE, self).__init__()
@@ -434,17 +447,19 @@ class MMoE(nn.Module):
         )
 
     def forward(self, x):
+        device = x.device  # 获取输入张量的设备
         tgt_len, bsz, input_dim = x.shape
         x_reshaped = x.view(tgt_len * bsz, input_dim)
         gate_scores = self.gate(x_reshaped)
         topk_scores, topk_indices = gate_scores.view(tgt_len, bsz, -1).topk(self.k, dim=2)
 
-        expert_outputs_top = torch.zeros(tgt_len, bsz, self.k, input_dim, device=x.device)
+        # 确保 intermediate tensor 在正确的设备上
+        expert_outputs_top = torch.zeros(tgt_len, bsz, self.k, input_dim, device=device)
 
         for t in range(tgt_len):
             for b in range(bsz):
                 for i, idx in enumerate(topk_indices[t, b]):
-                    expert_outputs_top[t, b, i] = self.experts[idx](x[t, b].unsqueeze(0))
+                    expert_outputs_top[t, b, i] = self.experts[idx](x[t, b].unsqueeze(0).to(device))
 
         weights_top = torch.softmax(topk_scores, dim=2).unsqueeze(-1)
 
@@ -453,6 +468,7 @@ class MMoE(nn.Module):
         output = output_top + x
 
         return output
+
 
 def multi_head_attention_forward(
         query: Tensor,
@@ -752,7 +768,7 @@ def multi_head_attention_forward(
     attn_output = torch.bmm(attn_output_weights, v)
     assert list(attn_output.size()) == [bsz * num_heads, tgt_len, head_dim]
     attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
-    moe = MMoE(input_dim=attn_output.size(2), num_experts=4, k=2, weight=out_proj_weight, bias=out_proj_bias)
+    moe = MMoE(input_dim=attn_output.size(2), num_experts=4, k=2, weight=out_proj_weight, bias=out_proj_bias).to(attn_output.device)
     # attn_output = F.linear(attn_output, out_proj_weight, out_proj_bias)
     attn_output=moe(attn_output)
 
