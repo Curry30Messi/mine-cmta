@@ -209,6 +209,7 @@ class Router(nn.Module):
     def forward(self, cls_token):
         out = F.relu(self.fc1(cls_token))  # (batch_size, 128)
         out = torch.sigmoid(self.fc2(out))  # (batch_size, 1)
+        print("out",out)
         return out.squeeze(1)  # (batch_size)
 
 class token_selection(nn.Module):
@@ -231,8 +232,19 @@ class token_selection(nn.Module):
         patch_token = self.MLP_s(patch_token)
         patch_token = self.dropout(patch_token)
         _patch_token = self.softmax(patch_token)
-        Temperature=self.router(cls_token)
+        T=Temperature
+        print("T:========",Temperature.shape)
+        print("T:========", Temperature)
+        T = self.router(cls_token)
+        print("T:========",Temperature.shape)
+        print("T:========", Temperature)
+        T=T.mean()
+        print("T:========",Temperature.shape)
+        print("T:========", Temperature)
         topk_values, topk_indices = torch.topk(_patch_token, math.ceil(start_patch_token.size(1)*Temperature), dim=1)
+        print(f"start_patch_token shape: {start_patch_token.shape}")
+        print(f"topk_indices shape: {topk_indices.shape}")
+
         final_token = torch.gather(start_patch_token, 1, topk_indices.squeeze(1))  # Squeeze the last dimension here
 
         return final_token
