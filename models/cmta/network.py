@@ -235,10 +235,10 @@ class token_selection(nn.Module):
         T=Temperature
         print("T:========", Temperature)
         T = self.router(cls_token)
-        print("T:========",Temperature.shape)
+
         print("T:========", Temperature)
         T=T.mean()
-        print("T:========",Temperature.shape)
+
         print("T:========", Temperature)
         topk_values, topk_indices = torch.topk(_patch_token, math.ceil(start_patch_token.size(1)*Temperature), dim=1)
         print(f"start_patch_token shape: {start_patch_token.shape}")
