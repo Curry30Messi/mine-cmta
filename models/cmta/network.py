@@ -209,7 +209,7 @@ class Router(nn.Module):
     def forward(self, cls_token):
         out = F.relu(self.fc1(cls_token))  # (batch_size, 128)
         out = torch.sigmoid(self.fc2(out))  # (batch_size, 1)
-        print("out",out)
+        # print("out",out)
         return out.squeeze(1)  # (batch_size)
 
 class token_selection(nn.Module):
