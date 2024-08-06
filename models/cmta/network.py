@@ -233,18 +233,14 @@ class token_selection(nn.Module):
         patch_token = self.dropout(patch_token)
         _patch_token = self.softmax(patch_token)
         T=Temperature
-        print("T:========", T)
         T = self.router(cls_token)
 
-        print("T:========", T)
         T=T.mean()
         T=T.item()
-        print("T:========", T)
-        topk_values, topk_indices = torch.topk(_patch_token, math.ceil(start_patch_token.size(1)*T), dim=1)
-        print(f"start_patch_token shape: {start_patch_token.shape}")
-        print(f"topk_indices shape: {topk_indices.shape}")
 
-        final_token = torch.gather(start_patch_token, 1, topk_indices.squeeze(1))  # Squeeze the last dimension here
+        topk_values, topk_indices = torch.topk(_patch_token, math.ceil(start_patch_token.size(1)*T), dim=1)
+
+        final_token = torch.gather(start_patch_token, 1, topk_indices)  # Squeeze the last dimension here
 
         return final_token
 
