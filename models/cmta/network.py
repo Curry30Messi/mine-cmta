@@ -238,7 +238,7 @@ class token_selection(nn.Module):
 
         print("T:========", T)
         T=T.mean()
-
+        T=T.item()
         print("T:========", T)
         topk_values, topk_indices = torch.topk(_patch_token, math.ceil(start_patch_token.size(1)*T), dim=1)
         print(f"start_patch_token shape: {start_patch_token.shape}")
