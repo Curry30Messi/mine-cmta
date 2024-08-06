@@ -233,7 +233,6 @@ class token_selection(nn.Module):
         patch_token = self.dropout(patch_token)
         _patch_token = self.softmax(patch_token)
         T=Temperature
-        print("T:========",Temperature.shape)
         print("T:========", Temperature)
         T = self.router(cls_token)
         print("T:========",Temperature.shape)
