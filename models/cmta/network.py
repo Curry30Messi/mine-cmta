@@ -153,7 +153,7 @@ class Transformer_P(nn.Module):
 
 
 class Transformer_G(nn.Module):
-    def __init__(self, feature_dim=512, num_experts=4, k=2):
+    def __init__(self, feature_dim=512, num_experts=4, k=2,UMoE=True):
         super(Transformer_G, self).__init__()
         # Encoder
         self.pos_layer = PPEG(dim=feature_dim)
@@ -163,6 +163,7 @@ class Transformer_G(nn.Module):
         self.layer2 = TransLayer(dim=feature_dim)
         self.moe = MoE(input_dim=feature_dim, num_experts=num_experts, k=k)
         self.norm = nn.LayerNorm(feature_dim)
+        self.UMoE = UMoE
         # Decoder
 
     def forward(self, features):
@@ -177,20 +178,38 @@ class Transformer_G(nn.Module):
         h = torch.cat((cls_tokens, h), dim=1)
         # ---->Translayer x1
         # h = self.moe(h)
-
+        Nloss1=0
+        Nloss2=0
         h = self.layer1(h)  # [B, N, 512]
         # ---->MoE layer
-        h ,_1,__1,Nloss1= self.moe(h)  # [B, N, 512]
+        if self.UMoE:
+            h ,_1,__1,Nloss1= self.moe(h)
+        else:
+            pass
         # ---->PPEG
         # h = self.pos_layer(h, _H, _W)  # [B, N, 512]
         # ---->Translayer x2
         h = self.layer2(h)  # [B, N, 512]
         # ---->cls_token
         # ---->MoE layer
-        h ,_2,__2,Nloss2= self.moe(h)  # [B, N, 512]
+        if self.UMoE:
+            h ,_2,__2,Nloss2= self.moe(h)  # [B, N, 512]
+        else:
+            pass
 
         return h[:, 0], h[:, 1:],Nloss1+Nloss2
 
+import torch.nn.functional as F
+class Router(nn.Module):
+    def __init__(self, cls_dim):
+        super(Router, self).__init__()
+        self.fc1 = nn.Linear(cls_dim, 128)
+        self.fc2 = nn.Linear(128, 1)
+
+    def forward(self, cls_token):
+        out = F.relu(self.fc1(cls_token))  # (batch_size, 128)
+        out = torch.sigmoid(self.fc2(out))  # (batch_size, 1)
+        return out.squeeze(1)  # (batch_size)
 
 class token_selection(nn.Module):
     def __init__(self):
@@ -200,6 +219,7 @@ class token_selection(nn.Module):
         self.softmax = nn.Softmax(dim=1)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.25)
+        self.router=Router(256)
 
     def forward(self, start_patch_token, cls_token,Temperature):
         half_token_patch = self.MLP_f(start_patch_token)
@@ -211,6 +231,7 @@ class token_selection(nn.Module):
         patch_token = self.MLP_s(patch_token)
         patch_token = self.dropout(patch_token)
         _patch_token = self.softmax(patch_token)
+        Temperature=self.router(cls_token)
         topk_values, topk_indices = torch.topk(_patch_token, math.ceil(start_patch_token.size(1)*Temperature), dim=1)
         final_token = torch.gather(start_patch_token, 1, topk_indices.squeeze(1))  # Squeeze the last dimension here
 
@@ -227,7 +248,7 @@ from hypll import nn as hnn
 manifold = PoincareBall(c=Curvature(requires_grad=True))
 
 class CMTA(nn.Module):
-    def __init__(self, omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4, fusion="concat", model_size="small",alpha=0.5,beta=0.5,tokenS="both",GT=0.5,PT=0.5,HRate=1e-8,BMoE=False):
+    def __init__(self, omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4, fusion="concat", model_size="small",alpha=0.5,beta=0.5,tokenS="both",GT=0.5,PT=0.5,HRate=1e-8,BMoE=True,UMoE=True):
         super(CMTA, self).__init__()
 
         self.omic_sizes = omic_sizes
@@ -240,6 +261,7 @@ class CMTA(nn.Module):
         self.PT=PT
         self.HRate=HRate
         self.BMoE=BMoE
+        self.UMoE=UMoE
         ###
         self.size_dict = {
             "pathomics": {"small": [1024, 256, 256], "large": [1024, 512, 256]},
@@ -276,9 +298,10 @@ class CMTA(nn.Module):
 
         # Pathomics Transformer Decoder
         # Encoder
-        self.genomics_encoder = Transformer_G(feature_dim=hidden[-1])
+        self.genomics_encoder = Transformer_G(feature_dim=hidden[-1],UMoE=self.UMoE)
         # Decoder
-        self.genomics_decoder = Transformer_G(feature_dim=hidden[-1])
+        self.genomics_decoder = Transformer_G(feature_dim=hidden[-1],UMoE=self.UMoE)
+
 
         self.hyperbolic_fc1 = hnn.HLinear(in_features=hidden[-1] * 2, out_features=hidden[-1], manifold=manifold)
         self.hyperbolic_fc2 = hnn.HLinear(in_features=hidden[-1], out_features=hidden[-1], manifold=manifold)
