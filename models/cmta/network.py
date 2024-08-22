@@ -89,7 +89,7 @@ class TransLayer(nn.Module):
             # number of moore-penrose iterations for approximating pinverse. 6 was recommended by the paper
             residual=True,
             # whether to do an extra residual with the value or not. supposedly faster convergence if turned on
-            dropout=0.5,
+            dropout=0.1,
         )
         self.moe = MoE(input_dim=dim, num_experts=num_experts, k=k)
 
@@ -199,7 +199,7 @@ class token_selection(nn.Module):
         self.MLP_s= nn.Linear(256, 256)
         self.softmax = nn.Softmax(dim=1)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.25)
 
     def forward(self, start_patch_token, cls_token,Temperature):
         half_token_patch = self.MLP_f(start_patch_token)
@@ -224,12 +224,12 @@ from torch import nn
 from hypll import nn as hnn
 
 
+
 manifold = PoincareBall(c=Curvature(requires_grad=True))
 
 class CMTA(nn.Module):
     def __init__(self, omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4, fusion="concat", model_size="small",alpha=0.5,beta=0.5,tokenS="both",GT=0.5,PT=0.5,HRate=1e-8):
         super(CMTA, self).__init__()
-
         self.omic_sizes = omic_sizes
         self.n_classes = n_classes
         self.fusion = fusion
@@ -250,7 +250,7 @@ class CMTA(nn.Module):
         for idx in range(len(hidden) - 1):
             fc.append(nn.Linear(hidden[idx], hidden[idx + 1]))
             fc.append(nn.ReLU())
-            fc.append(nn.Dropout(0.5))
+            fc.append(nn.Dropout(0.25))
         self.pathomics_fc = nn.Sequential(*fc)
         # Genomic Embedding Network
         hidden = self.size_dict["genomics"][model_size]
@@ -258,7 +258,7 @@ class CMTA(nn.Module):
         for input_dim in omic_sizes:
             fc_omic = [SNN_Block(dim1=input_dim, dim2=hidden[0])]
             for i, _ in enumerate(hidden[1:]):
-                fc_omic.append(SNN_Block(dim1=hidden[i], dim2=hidden[i + 1], dropout=0.5))
+                fc_omic.append(SNN_Block(dim1=hidden[i], dim2=hidden[i + 1], dropout=0.25))
             sig_networks.append(nn.Sequential(*fc_omic))
         self.genomics_fc = nn.ModuleList(sig_networks)
 
@@ -320,12 +320,15 @@ class CMTA(nn.Module):
         x_path = kwargs["x_path"]
         x_omic = [kwargs["x_omic%d" % i] for i in range(1, 7)]
 
+
         # Enbedding
         # genomics embedding
         genomics_features = [self.genomics_fc[idx].forward(sig_feat) for idx, sig_feat in enumerate(x_omic)]
         genomics_features = torch.stack(genomics_features).unsqueeze(0)  # [1, 6, 1024]
         # pathomics embedding
         pathomics_features = self.pathomics_fc(x_path).unsqueeze(0)
+        # x_path:torch.Size([1, 2048, 1024]) 4096 patch
+
         # print("genomics_features.shape: ",genomics_features.shape)
         # print("pathomics_features.shape:",pathomics_features.shape)
         # encoder
