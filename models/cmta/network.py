@@ -119,7 +119,7 @@ class Transformer_P(nn.Module):
     def __init__(self, feature_dim=512, num_experts=4, k=2):
         super(Transformer_P, self).__init__()
         # Encoder
-        # self.pos_layer = PPEG(dim=feature_dim)
+        self.pos_layer = PPEG(dim=feature_dim)
         self.cls_token = nn.Parameter(torch.randn(1, 1, feature_dim))
         nn.init.normal_(self.cls_token, std=1e-6)
         self.layer1 = TransLayer(dim=feature_dim)
@@ -156,7 +156,7 @@ class Transformer_G(nn.Module):
     def __init__(self, feature_dim=512, num_experts=4, k=2):
         super(Transformer_G, self).__init__()
         # Encoder
-        self.pos_layer = PPEG(dim=feature_dim)
+        # self.pos_layer = PPEG(dim=feature_dim)
         self.cls_token = nn.Parameter(torch.randn(1, 1, feature_dim))
         nn.init.normal_(self.cls_token, std=1e-6)
         self.layer1 = TransLayer(dim=feature_dim)
