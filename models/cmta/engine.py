@@ -98,9 +98,13 @@ class Engine(object):
             sim_loss_G = criterion[1](G.detach(), G_hat)
             loss = sur_loss + self.args.alpha * (sim_loss_P + sim_loss_G)
 
+
             if self.args.MoELoss:
                 loss+=self.args.LossRate*MLoss
-
+            print("======================train==================")
+            print("loss:",loss)
+            print("sur_loss:",sur_loss)
+            print("self.args.alpha * (sim_loss_P + sim_loss_G)",self.args.alpha * (sim_loss_P + sim_loss_G))
             risk = -torch.sum(S, dim=1).detach().cpu().numpy()
             all_risk_scores[batch_idx] = risk
             all_censorships[batch_idx] = c.item()
@@ -117,13 +121,13 @@ class Engine(object):
             # =======================================
             loss.backward()
 
-            for name, parms in model.named_parameters():
-                if parms.grad is not None:
-                    print('-->name:', name, '-->grad_requirs:', parms.requires_grad, '--weight', torch.mean(parms.data),
-                          ' -->grad_value:', torch.mean(parms.grad))
-                else:
-                    print('-->name:', name, '-->grad_requirs:', parms.requires_grad, '--weight', torch.mean(parms.data),
-                          ' -->grad_value: None', )
+            # for name, parms in model.named_parameters():
+            #     if parms.grad is not None:
+            #         print('-->name:', name, '-->grad_requirs:', parms.requires_grad, '--weight', torch.mean(parms.data),
+            #               ' -->grad_value:', torch.mean(parms.grad))
+            #     else:
+            #         print('-->name:', name, '-->grad_requirs:', parms.requires_grad, '--weight', torch.mean(parms.data),
+            #               ' -->grad_value: None', )
 
             optimizer_euclidean.step()
             optimizer_euclidean.zero_grad()
@@ -193,7 +197,10 @@ class Engine(object):
             loss = sur_loss + self.args.alpha * (sim_loss_P + sim_loss_G)
             if self.args.MoELoss:
                 loss+=self.args.LossRate*MLoss
-
+            print("======================train==================")
+            print("loss:",loss)
+            print("sur_loss:",sur_loss)
+            print("self.args.alpha * (sim_loss_P + sim_loss_G)",self.args.alpha * (sim_loss_P + sim_loss_G))
             risk = -torch.sum(S, dim=1).cpu().numpy()
             all_risk_scores[batch_idx] = risk
             all_censorships[batch_idx] = c.cpu().numpy()
