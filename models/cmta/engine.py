@@ -122,6 +122,9 @@ class Engine(object):
 
             optimizer_hyperbolic.step()
             optimizer_hyperbolic.zero_grad()
+            for name, parms in model.named_parameters():
+                print('-->name:', name, '-->grad_requirs:', parms.requires_grad, '--weight', torch.mean(parms.data),
+                      ' -->grad_value:', torch.mean(parms.grad))
             # loss.backward()
             # optimizer.step()
             # optimizer.zero_grad()
