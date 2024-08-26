@@ -91,7 +91,7 @@ class TransLayer(nn.Module):
             # whether to do an extra residual with the value or not. supposedly faster convergence if turned on
             dropout=0.1,
         )
-        self.moe = MoE(input_dim=dim, num_experts=num_experts, k=k)
+        # self.moe = MoE(input_dim=dim, num_experts=num_experts, k=k)
 
     def forward(self, x):
         x = x + self.attn(self.norm(x))

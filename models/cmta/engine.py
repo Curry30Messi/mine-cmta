@@ -117,11 +117,6 @@ class Engine(object):
             # =======================================
             loss.backward()
 
-            optimizer_euclidean.step()
-            optimizer_euclidean.zero_grad()
-
-            optimizer_hyperbolic.step()
-            optimizer_hyperbolic.zero_grad()
             for name, parms in model.named_parameters():
                 if parms.grad is not None:
                     print('-->name:', name, '-->grad_requirs:', parms.requires_grad, '--weight', torch.mean(parms.data),
@@ -129,6 +124,13 @@ class Engine(object):
                 else:
                     print('-->name:', name, '-->grad_requirs:', parms.requires_grad, '--weight', torch.mean(parms.data),
                           ' -->grad_value: None', )
+
+            optimizer_euclidean.step()
+            optimizer_euclidean.zero_grad()
+
+            optimizer_hyperbolic.step()
+            optimizer_hyperbolic.zero_grad()
+
 
 
             # loss.backward()
