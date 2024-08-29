@@ -12,7 +12,7 @@ from utils.util import get_split_loader, set_seed
 from utils.loss import define_loss
 from utils.optimizer import define_optimizer
 from utils.scheduler import define_scheduler
-
+from datetime import datetime
 
 class FlushFile:
     def __init__(self, f):
@@ -27,6 +27,7 @@ class FlushFile:
 
 
 def main(args):
+    start_time = datetime.now()
     # set random seed for reproduction
     set_seed(args.seed)
 
@@ -50,6 +51,8 @@ def main(args):
     print("=======================================")
     print("所有参数：", vars(args))
     print("=======================================")
+
+
 
     # start 5-fold CV evaluation.
     for fold in range(5):
@@ -126,7 +129,8 @@ def main(args):
     best_score.append(np.mean(best_score[1:6]))
     best_score.append(np.std(best_score[1:6]))
 
-
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
     csv_path = os.path.join(results_dir, "results.csv")
     print("############", csv_path)
     with open(csv_path, "w", encoding="utf-8", newline="") as fp:
@@ -134,6 +138,7 @@ def main(args):
         writer.writerow(header)
         writer.writerow(best_epoch)
         writer.writerow(best_score)
+        writer.writerow(elapsed_time)
     mean_score=np.mean(best_score[1:6])
     new_dir_name = f"{results_dir}_{mean_score:.2f}__{args.modality}__[{args.GT}_{args.PT}]__[{args.lr}]_{args.weight_decay}]"
     os.rename(results_dir, new_dir_name)
