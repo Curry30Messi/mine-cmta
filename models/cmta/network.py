@@ -222,7 +222,7 @@ from hypll.manifolds.poincare_ball import Curvature, PoincareBall
 from hypll.tensors import TangentTensor
 from torch import nn
 from hypll import nn as hnn
-
+from fusion import GatedClassifier,LinearSumClassifier,ConcatenateClassifier,MoEClassifier
 
 
 manifold = PoincareBall(c=Curvature(requires_grad=True))
@@ -400,6 +400,7 @@ class CMTA(nn.Module):
                     dim=1,
                 )
             )  # take cls token to make prediction
+            logits = self.classifier(fusion)
         elif self.fusion == "Aconcat":
             fusion = self.mm(
                 torch.concat(
@@ -410,6 +411,7 @@ class CMTA(nn.Module):
                     dim=1,
                 )
             )  #
+            logits = self.classifier(fusion)
         elif self.fusion == "fineCoarse":
             fusion_coarse = self.mm(
                 torch.concat(
@@ -430,11 +432,13 @@ class CMTA(nn.Module):
                 )
             )
             fusion=self.beta * fusion_fine + (1-self.beta) * fusion_coarse
+            logits = self.classifier(fusion)
         elif self.fusion == "bilinear":
             fusion = self.mm(
                 (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
                 (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
             )  # take cls token to make prediction
+            logits = self.classifier(fusion)
         elif self.fusion == "hyperbolic":
             # Step 1: Compute the average of pathomics encoder and decoder cls tokens
             # print("hyperbolic")
@@ -472,6 +476,31 @@ class CMTA(nn.Module):
             )  # take cls token to make prediction
 
             fusion = fusion_hy.tensor*self.HRate+fusion_e
+            logits = self.classifier(fusion)
+        elif self.fusion == "Gated":
+            hidden_size = 128
+            p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
+            g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
+            gated_classifier = GatedClassifier(256, 256, self.n_classes, hidden_size)
+            logits, z_gated = gated_classifier(p, g)
+        elif self.fusion == "LinearSum":
+            hidden_size = 128
+            p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
+            g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
+            linear_sum_classifier = LinearSumClassifier(256, 256, self.n_classes, hidden_size)
+            logits = linear_sum_classifier(p, g)
+        elif self.fusion == "Concatenate":
+            hidden_size = 128
+            p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
+            g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
+            concatenate_classifier = ConcatenateClassifier(512, self.n_classes, hidden_size)
+            logits = concatenate_classifier(p, g)
+        elif self.fusion == "MoE":
+            hidden_size = 128
+            p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
+            g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
+            moe_classifier = MoEClassifier(256, 256, self.n_classes, hidden_size)
+            logits = moe_classifier(p, g)
 
         else:
             raise NotImplementedError("Fusion [{}] is not implemented".format(self.fusion))
@@ -479,7 +508,7 @@ class CMTA(nn.Module):
         # fusion = (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
         # predict
         # predict
-        logits = self.classifier(fusion)  # [1, n_classes]
+          # [1, n_classes]
         hazards = torch.sigmoid(logits)
         S = torch.cumprod(1 - hazards, dim=1)
         return hazards, S, cls_token_pathomics_encoder, cls_token_pathomics_decoder, cls_token_genomics_encoder, cls_token_genomics_decoder,Nloss2+Nloss1

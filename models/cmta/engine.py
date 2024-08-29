@@ -218,12 +218,12 @@ class Engine(object):
             hyperbolic_params = [p for name, p in model.named_parameters() if 'hyperbolic' in name]
             #
             # # 定义优化器
-            # optimizer_euclidean = torch.optim.SGD(filter(lambda p: p.requires_grad, euclidean_params), lr=self.args.lr, momentum=0.9, weight_decay=self.args.weight_decay)
-            optimizer_euclidean = torch.optim.Adam(
-                filter(lambda p: p.requires_grad, euclidean_params),
-                lr=self.args.lr,
-                weight_decay=self.args.weight_decay
-            )
+            optimizer_euclidean = torch.optim.SGD(filter(lambda p: p.requires_grad, euclidean_params), lr=self.args.lr, momentum=0.9, weight_decay=self.args.weight_decay)
+            # optimizer_euclidean = torch.optim.Adam(
+            #     filter(lambda p: p.requires_grad, euclidean_params),
+            #     lr=self.args.lr,
+            #     weight_decay=self.args.weight_decay
+            # )
 
             optimizer_hyperbolic = RiemannianAdam(hyperbolic_params, lr=0.001)
             # =======================================
