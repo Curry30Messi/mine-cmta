@@ -339,6 +339,82 @@ from hypll import nn as hnn
 
 manifold = PoincareBall(c=Curvature(requires_grad=True))
 
+from __future__ import print_function
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.autograd import Variable
+from torch.nn.parameter import Parameter
+from torch.nn.init import xavier_normal_
+
+
+
+class LMF(nn.Module):
+    '''
+    Low-rank Multimodal Fusion
+    '''
+
+    def __init__(self, input_dims, output_dim, rank, use_softmax=False):
+        '''
+        Args:
+            input_dims - a length-2 tuple, contains (audio_dim, video_dim)
+            output_dim - int, specifying the size of output
+            rank - int, specifying the size of rank in LMF
+        Output:
+            (return value in forward) a tensor of shape (batch_size, output_dim)
+        '''
+        super(LMF, self).__init__()
+
+        # dimensions are specified in the order of audio and video
+        self.audio_in = input_dims[0]
+        self.video_in = input_dims[1]
+
+
+        self.output_dim = output_dim
+        self.rank = rank
+
+
+        # define the pre-fusion subnetworks
+
+        # define the post_fusion layers
+        # self.post_fusion_dropout = nn.Dropout(p=self.post_fusion_prob)
+        self.audio_factor = Parameter(torch.Tensor(self.rank, self.audio_in + 1, self.output_dim))
+        self.video_factor = Parameter(torch.Tensor(self.rank, self.video_in + 1, self.output_dim))
+        self.fusion_weights = Parameter(torch.Tensor(1, self.rank))
+        self.fusion_bias = Parameter(torch.Tensor(1, self.output_dim))
+
+        # init the factors
+        xavier_normal_(self.audio_factor)
+        xavier_normal_(self.video_factor)
+        xavier_normal_(self.fusion_weights)
+        self.fusion_bias.data.fill_(0)
+
+    def forward(self, audio_x, video_x):
+        '''
+        Args:
+            audio_x: tensor of shape (batch_size, audio_in)
+            video_x: tensor of shape (batch_size, video_in)
+        '''
+        audio_h = audio_x
+        video_h = video_x
+        batch_size = audio_h.shape[0]
+
+
+        _audio_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), audio_h), dim=1)
+        _video_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), video_h), dim=1)
+
+
+        fusion_audio = torch.matmul(_audio_h, self.audio_factor)
+        fusion_video = torch.matmul(_video_h, self.video_factor)
+        fusion_zy = fusion_audio * fusion_video
+
+        output = torch.matmul(self.fusion_weights, fusion_zy.permute(1, 0, 2)).squeeze() + self.fusion_bias
+        output = output.view(-1, self.output_dim)
+
+        return output
+
+
+
 class CMTA(nn.Module):
     def __init__(self, omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4, fusion="concat", model_size="small",alpha=0.5,beta=0.5,tokenS="both",GT=0.5,PT=0.5,HRate=1e-8):
         super(CMTA, self).__init__()
@@ -431,62 +507,46 @@ class CMTA(nn.Module):
         # meta genomics and pathomics features
         x_path = kwargs["x_path"]
         x_omic = [kwargs["x_omic%d" % i] for i in range(1, 7)]
-
+        # x_path:torch.Size([1, 2048, 1024]) 4096 patch
 
         # Enbedding
         # genomics embedding
         genomics_features = [self.genomics_fc[idx].forward(sig_feat) for idx, sig_feat in enumerate(x_omic)]
-        genomics_features = torch.stack(genomics_features).unsqueeze(0)  # [1, 6, 1024]
-        # pathomics embedding
-        pathomics_features = self.pathomics_fc(x_path).unsqueeze(0)
-        # x_path:torch.Size([1, 2048, 1024]) 4096 patch
 
-        # print("genomics_features.shape: ",genomics_features.shape)
-        # print("pathomics_features.shape:",pathomics_features.shape)
-        # encoder
-        # pathomics encoder
+        genomics_features = torch.stack(genomics_features).unsqueeze(0)  # [1, 6, 1024]
+        pathomics_features = self.pathomics_fc(x_path).unsqueeze(0)
+
+
+        # genomics_features.shape: torch.Size([1, 6, 256])
+        # pathomics_features.shape: torch.Size([1, 2048, 256])
+
         cls_token_pathomics_encoder, patch_token_pathomics_encoder = self.pathomics_encoder(
             pathomics_features)  # cls token + patch tokens
         # genomics encoder
         cls_token_genomics_encoder, patch_token_genomics_encoder ,Nloss1= self.genomics_encoder(
             genomics_features)  # cls token + patch tokens
 
-        # print("cls_token_pathomics_encoder.shape: ",cls_token_pathomics_encoder.shape)
-        # print("cls_token_genomics_encoder.shape: ",cls_token_genomics_encoder.shape)
-        # print("patch_token_pathomics_encoder.shape: ",patch_token_pathomics_encoder.shape)
-        # print("patch_token_genomics_encoder.shape: ",patch_token_genomics_encoder.shape)
-        # cross-omics attention
+        # cls_token_pathomics_encoder.shape: torch.Size([1, 256])
+        # cls_token_genomics_encoder.shape: torch.Size([1, 256])
+        # patch_token_pathomics_encoder.shape: torch.Size([1, 2116, 256])
+        # patch_token_genomics_encoder.shape: torch.Size([1, 9, 256])
 
         #=============== token selection;
 
         if self.tokenS=="both":
             patch_token_pathomics_encoder=self.token_selection(patch_token_pathomics_encoder, cls_token_pathomics_encoder,self.PT)
             patch_token_genomics_encoder=self.token_selection(patch_token_genomics_encoder, cls_token_genomics_encoder,self.GT)
+            patch_token_pathomics_encoder=patch_token_pathomics_encoder.transpose(1, 0)
+            patch_token_genomics_encoder=patch_token_genomics_encoder.transpose(1, 0)
         elif self.tokenS=="P":
             patch_token_pathomics_encoder=self.token_selection(patch_token_pathomics_encoder, cls_token_pathomics_encoder,self.PT)
+            patch_token_pathomics_encoder=patch_token_pathomics_encoder.transpose(1, 0)
         elif self.tokenS=="G":
             patch_token_genomics_encoder=self.token_selection(patch_token_genomics_encoder, cls_token_genomics_encoder,self.GT)
+            patch_token_genomics_encoder=patch_token_genomics_encoder.transpose(1, 0)
         elif self.tokenS=="N":
             pass
 
-        # =============== token selection;
-        # print("===========")
-        # print("patch_token_pathomics_encoder.shape: ", patch_token_pathomics_encoder.shape)
-        # print("patch_token_genomics_encoder.shape: ", patch_token_genomics_encoder.shape)
-        # print("===========")
-        pathomics_in_genomics, Att = self.P_in_G_Att(
-            patch_token_pathomics_encoder.transpose(1, 0),
-            patch_token_genomics_encoder.transpose(1, 0),
-            patch_token_genomics_encoder.transpose(1, 0),
-        )  # ([14642, 1, 256])
-        genomics_in_pathomics, Att = self.G_in_P_Att(
-            patch_token_genomics_encoder.transpose(1, 0),
-            patch_token_pathomics_encoder.transpose(1, 0),
-            patch_token_pathomics_encoder.transpose(1, 0),
-        )  # ([7, 1, 256])
-        # decoder
-        # print(" pathomics_in_genomics: " ,pathomics_in_genomics.shape)
-        # print(" genomics_in_pathomics: " ,genomics_in_pathomics.shape)
 
 
         # pathomics decoder
@@ -615,8 +675,8 @@ class CMTA(nn.Module):
             logits = moe_classifier(p, g)
         elif self.fusion == "LMF":
             lmf = LMF(input_dims=(256, 256), output_dim=256, rank=4)
-            p = (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
-            g = (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
+            p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
+            g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
             output = lmf(p, g)
             logits = self.classifier(output)
             # print(output.shape)  # should print torch.Size([1, 256])
@@ -631,81 +691,3 @@ class CMTA(nn.Module):
         hazards = torch.sigmoid(logits)
         S = torch.cumprod(1 - hazards, dim=1)
         return hazards, S, cls_token_pathomics_encoder, cls_token_pathomics_decoder, cls_token_genomics_encoder, cls_token_genomics_decoder,Nloss2+Nloss1
-
-
-
-from __future__ import print_function
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.autograd import Variable
-from torch.nn.parameter import Parameter
-from torch.nn.init import xavier_normal_
-
-
-
-class LMF(nn.Module):
-    '''
-    Low-rank Multimodal Fusion
-    '''
-
-    def __init__(self, input_dims, output_dim, rank, use_softmax=False):
-        '''
-        Args:
-            input_dims - a length-2 tuple, contains (audio_dim, video_dim)
-            output_dim - int, specifying the size of output
-            rank - int, specifying the size of rank in LMF
-        Output:
-            (return value in forward) a tensor of shape (batch_size, output_dim)
-        '''
-        super(LMF, self).__init__()
-
-        # dimensions are specified in the order of audio and video
-        self.audio_in = input_dims[0]
-        self.video_in = input_dims[1]
-
-
-        self.output_dim = output_dim
-        self.rank = rank
-
-
-        # define the pre-fusion subnetworks
-
-        # define the post_fusion layers
-        # self.post_fusion_dropout = nn.Dropout(p=self.post_fusion_prob)
-        self.audio_factor = Parameter(torch.Tensor(self.rank, self.audio_in + 1, self.output_dim))
-        self.video_factor = Parameter(torch.Tensor(self.rank, self.video_in + 1, self.output_dim))
-        self.fusion_weights = Parameter(torch.Tensor(1, self.rank))
-        self.fusion_bias = Parameter(torch.Tensor(1, self.output_dim))
-
-        # init the factors
-        xavier_normal_(self.audio_factor)
-        xavier_normal_(self.video_factor)
-        xavier_normal_(self.fusion_weights)
-        self.fusion_bias.data.fill_(0)
-
-    def forward(self, audio_x, video_x):
-        '''
-        Args:
-            audio_x: tensor of shape (batch_size, audio_in)
-            video_x: tensor of shape (batch_size, video_in)
-        '''
-        audio_h = audio_x
-        video_h = video_x
-        batch_size = audio_h.shape[0]
-
-
-        _audio_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), audio_h), dim=1)
-        _video_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), video_h), dim=1)
-
-
-        fusion_audio = torch.matmul(_audio_h, self.audio_factor)
-        fusion_video = torch.matmul(_video_h, self.video_factor)
-        fusion_zy = fusion_audio * fusion_video
-
-        output = torch.matmul(self.fusion_weights, fusion_zy.permute(1, 0, 2)).squeeze() + self.fusion_bias
-        output = output.view(-1, self.output_dim)
-
-        return output
-
-
