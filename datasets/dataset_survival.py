@@ -117,7 +117,7 @@ class Generic_WSI_Survival_Dataset(Dataset):
 
     def cls_ids_prep(self):
         self.patient_cls_ids = [[] for i in range(self.num_classes)]
-        for i in range(self.num_classces):
+        for i in range(self.num_classes):
             self.patient_cls_ids[i] = np.where(self.patient_data['label'] == i)[0]
 
         self.slide_cls_ids = [[] for i in range(self.num_classes)]
