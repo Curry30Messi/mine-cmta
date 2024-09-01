@@ -24,6 +24,7 @@ class Generic_WSI_Survival_Dataset(Dataset):
             label_dict (dict): Dictionary with key, value pairs for converting str labels to int
             ignore (list): List containing class labels to ignore
         """
+        self.OOM = OOM
         self.custom_test_ids = None
         self.seed = seed
         self.patient_strat = patient_strat
@@ -116,7 +117,7 @@ class Generic_WSI_Survival_Dataset(Dataset):
 
     def cls_ids_prep(self):
         self.patient_cls_ids = [[] for i in range(self.num_classes)]
-        for i in range(self.num_classes):
+        for i in range(self.num_classces):
             self.patient_cls_ids[i] = np.where(self.patient_data['label'] == i)[0]
 
         self.slide_cls_ids = [[] for i in range(self.num_classes)]
@@ -157,7 +158,7 @@ class Generic_WSI_Survival_Dataset(Dataset):
             mask = self.slide_data['slide_id'].isin(split.tolist())
             df_slice = self.slide_data[mask].reset_index(drop=True)
             split = Generic_Split(df_slice, metadata=self.metadata, modal=self.modal, signatures=self.signatures,
-                                  data_dir=self.data_dir, label_col=self.label_col, patient_dict=self.patient_dict, num_classes=self.num_classes)
+                                  data_dir=self.data_dir, label_col=self.label_col, patient_dict=self.patient_dict, num_classes=self.num_classes,OOM=self.OOM)
         else:
             split = None
 
@@ -188,7 +189,7 @@ class Generic_WSI_Survival_Dataset(Dataset):
 
 class Generic_MIL_Survival_Dataset(Generic_WSI_Survival_Dataset):
     def __init__(self, data_dir, modal = 'omic', OOM = 0, **kwargs):
-        super(Generic_MIL_Survival_Dataset, self).__init__(**kwargs)
+        super(Generic_MIL_Survival_Dataset, self).__init__(OOM=OOM, **kwargs)
         self.data_dir = data_dir
         self.modal = modal
         self.use_h5 = False
