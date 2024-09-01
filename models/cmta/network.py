@@ -594,31 +594,25 @@ class CMTA(nn.Module):
             p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
             g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
             gated_classifier = GatedClassifier(256, 256, self.n_classes, hidden_size).to(p.device)
-            logits, z_gated = gated_classifier(p, g).to(p.device)
+            logits, z_gated = gated_classifier(p, g)
         elif self.fusion == "LinearSum":
             hidden_size = 128
             p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
             g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
             linear_sum_classifier = LinearSumClassifier(256, 256, self.n_classes, hidden_size).to(p.device)
-            logits = linear_sum_classifier(p, g).to(p.device)
-        # elif self.fusion == "Concatenate":
-        #     hidden_size = 128
-        #     p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
-        #     g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
-        #     concatenate_classifier = ConcatenateClassifier(512, self.n_classes, hidden_size).to(p.device)
-        #     logits = concatenate_classifier(p, g).to(p.device)
+            logits = linear_sum_classifier(p, g)
         elif self.fusion == "MoE":
             hidden_size = 128
             p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
             g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
             moe_classifier = MoEClassifier(256, 256, self.n_classes, hidden_size).to(p.device)
-            logits = moe_classifier(p, g).to(p.device)
+            logits = moe_classifier(p, g)
         elif self.fusion == "LMF":
             p = (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
             g = (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
             lmf = LMF(input_dims=(256, 256), output_dim=256, rank=4).to(p.device)
-            output = lmf(p, g).to(p.device)
-            logits = self.classifier(output).to(p.device)
+            output = lmf(p, g)
+            logits = self.classifier(output)
             # print(output.shape)  # should print torch.Size([1, 256])
 
         else:
@@ -695,16 +689,16 @@ class LMF(nn.Module):
         batch_size = audio_h.shape[0]
 
 
-        _audio_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), audio_h), dim=1).to(audio_x.device)
-        _video_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), video_h), dim=1).to(audio_x.device)
+        _audio_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), audio_h), dim=1)
+        _video_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), video_h), dim=1)
 
 
-        fusion_audio = torch.matmul(_audio_h, self.audio_factor).to(audio_x.device)
-        fusion_video = torch.matmul(_video_h, self.video_factor).to(audio_x.device)
-        fusion_zy = (fusion_audio * fusion_video).to(audio_x.device)
+        fusion_audio = torch.matmul(_audio_h, self.audio_factor)
+        fusion_video = torch.matmul(_video_h, self.video_factor)
+        fusion_zy = (fusion_audio * fusion_video)
 
-        output = (torch.matmul(self.fusion_weights, fusion_zy.permute(1, 0, 2)).squeeze() + self.fusion_bias).to(audio_x.device)
-        output = output.view(-1, self.output_dim).to(audio_x.device)
+        output = (torch.matmul(self.fusion_weights, fusion_zy.permute(1, 0, 2)).squeeze() + self.fusion_bias)
+        output = output.view(-1, self.output_dim)
 
         return output
 
