@@ -421,7 +421,7 @@ class CMTA(nn.Module):
                 *[nn.Linear(hidden[-1] * 2, hidden[-1]), nn.ReLU(), nn.Linear(hidden[-1], hidden[-1]), nn.ReLU()]
             )
         else:
-            raise NotImplementedError("Fusion [{}] is not implemented".format(self.fusion))
+            pass
 
         self.classifier = nn.Linear(hidden[-1], self.n_classes)
 
