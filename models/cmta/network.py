@@ -689,8 +689,8 @@ class LMF(nn.Module):
         batch_size = audio_h.shape[0]
 
 
-        _audio_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), audio_h), dim=1)
-        _video_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), video_h), dim=1)
+        _audio_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), audio_h), dim=1).to(audio_x.device)
+        _video_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), video_h), dim=1).to(audio_x.device)
 
 
         fusion_audio = torch.matmul(_audio_h, self.audio_factor)
