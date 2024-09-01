@@ -89,21 +89,21 @@ class LinearSumClassifier(nn.Module):
         h = self.visual_layer(x_v) + self.textual_layer(x_t)
         return self.logistic_mlp(h)
 
-class ConcatenateClassifier(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_size):
-        super(ConcatenateClassifier, self).__init__()
-        self.linear1 = nn.Linear(input_dim, hidden_size * 2, bias=False)
-        self.layernorm1 = nn.LayerNorm(hidden_size * 2)
-        self.linear2 = nn.Linear(hidden_size * 2, hidden_size, bias=False)
-        self.layernorm2 = nn.LayerNorm(hidden_size)
-        self.linear3 = nn.Linear(hidden_size, output_dim, bias=False)
-        self.logistic = nn.LogSoftmax(dim=1)
-
-    def forward(self, x):
-        x = F.relu(self.layernorm1(self.linear1(x)))
-        x = F.relu(self.layernorm2(self.linear2(x)))
-        x = self.linear3(x)
-        return self.logistic(x)
+# class ConcatenateClassifier(nn.Module):
+#     def __init__(self, input_dim, output_dim, hidden_size):
+#         super(ConcatenateClassifier, self).__init__()
+#         self.linear1 = nn.Linear(input_dim, hidden_size * 2, bias=False)
+#         self.layernorm1 = nn.LayerNorm(hidden_size * 2)
+#         self.linear2 = nn.Linear(hidden_size * 2, hidden_size, bias=False)
+#         self.layernorm2 = nn.LayerNorm(hidden_size)
+#         self.linear3 = nn.Linear(hidden_size, output_dim, bias=False)
+#         self.logistic = nn.LogSoftmax(dim=1)
+#
+#     def forward(self, x):
+#         x = F.relu(self.layernorm1(self.linear1(x)))
+#         x = F.relu(self.layernorm2(self.linear2(x)))
+#         x = self.linear3(x)
+#         return self.logistic(x)
 
 class MoEClassifier(nn.Module):
     def __init__(self, visual_dim, textual_dim, output_dim, hidden_size):
@@ -593,32 +593,32 @@ class CMTA(nn.Module):
             hidden_size = 128
             p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
             g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
-            gated_classifier = GatedClassifier(256, 256, self.n_classes, hidden_size)
-            logits, z_gated = gated_classifier(p, g)
+            gated_classifier = GatedClassifier(256, 256, self.n_classes, hidden_size).to(p.device)
+            logits, z_gated = gated_classifier(p, g).to(p.device)
         elif self.fusion == "LinearSum":
             hidden_size = 128
             p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
             g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
-            linear_sum_classifier = LinearSumClassifier(256, 256, self.n_classes, hidden_size)
-            logits = linear_sum_classifier(p, g)
-        elif self.fusion == "Concatenate":
-            hidden_size = 128
-            p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
-            g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
-            concatenate_classifier = ConcatenateClassifier(512, self.n_classes, hidden_size)
-            logits = concatenate_classifier(p, g)
+            linear_sum_classifier = LinearSumClassifier(256, 256, self.n_classes, hidden_size).to(p.device)
+            logits = linear_sum_classifier(p, g).to(p.device)
+        # elif self.fusion == "Concatenate":
+        #     hidden_size = 128
+        #     p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
+        #     g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
+        #     concatenate_classifier = ConcatenateClassifier(512, self.n_classes, hidden_size).to(p.device)
+        #     logits = concatenate_classifier(p, g).to(p.device)
         elif self.fusion == "MoE":
             hidden_size = 128
             p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
             g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
-            moe_classifier = MoEClassifier(256, 256, self.n_classes, hidden_size)
-            logits = moe_classifier(p, g)
+            moe_classifier = MoEClassifier(256, 256, self.n_classes, hidden_size).to(p.device)
+            logits = moe_classifier(p, g).to(p.device)
         elif self.fusion == "LMF":
-            lmf = LMF(input_dims=(256, 256), output_dim=256, rank=4)
             p = (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
             g = (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
-            output = lmf(p, g)
-            logits = self.classifier(output)
+            lmf = LMF(input_dims=(256, 256), output_dim=256, rank=4).to(p.device)
+            output = lmf(p, g).to(p.device)
+            logits = self.classifier(output).to(p.device)
             # print(output.shape)  # should print torch.Size([1, 256])
 
         else:
@@ -695,16 +695,16 @@ class LMF(nn.Module):
         batch_size = audio_h.shape[0]
 
 
-        _audio_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), audio_h), dim=1)
-        _video_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), video_h), dim=1)
+        _audio_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), audio_h), dim=1).to(audio_x.device)
+        _video_h = torch.cat((Variable(torch.ones(batch_size, 1).type( torch.FloatTensor), requires_grad=False), video_h), dim=1).to(audio_x.device)
 
 
-        fusion_audio = torch.matmul(_audio_h, self.audio_factor)
-        fusion_video = torch.matmul(_video_h, self.video_factor)
-        fusion_zy = fusion_audio * fusion_video
+        fusion_audio = torch.matmul(_audio_h, self.audio_factor).to(audio_x.device)
+        fusion_video = torch.matmul(_video_h, self.video_factor).to(audio_x.device)
+        fusion_zy = (fusion_audio * fusion_video).to(audio_x.device)
 
-        output = torch.matmul(self.fusion_weights, fusion_zy.permute(1, 0, 2)).squeeze() + self.fusion_bias
-        output = output.view(-1, self.output_dim)
+        output = (torch.matmul(self.fusion_weights, fusion_zy.permute(1, 0, 2)).squeeze() + self.fusion_bias).to(audio_x.device)
+        output = output.view(-1, self.output_dim).to(audio_x.device)
 
         return output
 
