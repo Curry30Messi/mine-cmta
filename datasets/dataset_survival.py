@@ -13,7 +13,7 @@ class Generic_WSI_Survival_Dataset(Dataset):
     def __init__(self,
                  csv_path='dataset_csv/ccrcc_clean.csv', modal='omic', apply_sig=False,
                  shuffle=False, seed=7, n_bins=4, ignore=[],
-                 patient_strat=False, label_col=None, filter_dict={}, eps=1e-6):
+                 patient_strat=False, label_col=None, filter_dict={}, eps=1e-6,OOM=0):
         r"""
         Generic_WSI_Survival_Dataset 
 
