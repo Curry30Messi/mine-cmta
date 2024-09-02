@@ -133,12 +133,13 @@ def main(args):
     elapsed_time = end_time - start_time
     csv_path = os.path.join(results_dir, "results.csv")
     print("############", csv_path)
+    elapsed_time_list = [elapsed_time] * 8
     with open(csv_path, "w", encoding="utf-8", newline="") as fp:
         writer = csv.writer(fp)
         writer.writerow(header)
         writer.writerow(best_epoch)
         writer.writerow(best_score)
-        writer.writerow(elapsed_time)
+        writer.writerow(elapsed_time_list)
     mean_score=np.mean(best_score[1:6])
     new_dir_name = f"{results_dir}_{mean_score:.2f}__{args.modality}__[{args.GT}_{args.PT}]__[{args.lr}]_{args.weight_decay}]"
     os.rename(results_dir, new_dir_name)
