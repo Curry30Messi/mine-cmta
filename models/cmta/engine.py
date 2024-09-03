@@ -218,7 +218,14 @@ class Engine(object):
             hyperbolic_params = [p for name, p in model.named_parameters() if 'hyperbolic' in name]
             #
             # # 定义优化器
-            optimizer_euclidean = torch.optim.SGD(filter(lambda p: p.requires_grad, euclidean_params), lr=self.args.lr, momentum=0.9, weight_decay=self.args.weight_decay)
+            # optimizer_euclidean = torch.optim.SGD(filter(lambda p: p.requires_grad, euclidean_params), lr=self.args.lr, momentum=0.9, weight_decay=self.args.weight_decay)
+            # 假设 optimizer 已经定义
+            # 首先清空 optimizer 的 param_groups
+            optimizer.param_groups.clear()
+
+            # 然后只将 euclidean_params 添加到 optimizer 中
+            optimizer.add_param_group({'params': euclidean_params})
+
             # optimizer_euclidean = torch.optim.Adam(
             #     filter(lambda p: p.requires_grad, euclidean_params),
             #     lr=self.args.lr,
@@ -227,7 +234,7 @@ class Engine(object):
 
             optimizer_hyperbolic = RiemannianAdam(hyperbolic_params, lr=0.001)
             # =======================================
-            loss.backward()
+
 
             # for name, parms in model.named_parameters():
             #     if parms.grad is not None:
@@ -236,12 +243,15 @@ class Engine(object):
             #     else:
             #         print('-->name:', name, '-->grad_requirs:', parms.requires_grad, '--weight', torch.mean(parms.data),
             #               ' -->grad_value: None', )
-
-            optimizer_euclidean.step()
-            optimizer_euclidean.zero_grad()
-
-            optimizer_hyperbolic.step()
+            optimizer.zero_grad()
             optimizer_hyperbolic.zero_grad()
+
+
+            loss.backward()
+
+            optimizer.step()
+            optimizer_hyperbolic.step()
+
 
 
 
