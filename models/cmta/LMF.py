@@ -459,12 +459,12 @@ class CMTA(nn.Module):
         #=============== token selection;
 
         if self.tokenS=="both":
-            patch_token_pathomics_encoder=self.token_selection(patch_token_pathomics_encoder, cls_token_pathomics_encoder,self.PT)
-            patch_token_genomics_encoder=self.token_selection(patch_token_genomics_encoder, cls_token_genomics_encoder,self.GT)
+            patch_token_pathomics_encoder=self.token_selection(patch_token_pathomics_encoder, cls_token_pathomics_encoder,0.5)
+            patch_token_genomics_encoder=self.token_selection(patch_token_genomics_encoder, cls_token_genomics_encoder,0.5)
         elif self.tokenS=="P":
-            patch_token_pathomics_encoder=self.token_selection(patch_token_pathomics_encoder, cls_token_pathomics_encoder,self.PT)
+            patch_token_pathomics_encoder=self.token_selection(patch_token_pathomics_encoder, cls_token_pathomics_encoder,0.5)
         elif self.tokenS=="G":
-            patch_token_genomics_encoder=self.token_selection(patch_token_genomics_encoder, cls_token_genomics_encoder,self.GT)
+            patch_token_genomics_encoder=self.token_selection(patch_token_genomics_encoder, cls_token_genomics_encoder,0.5)
         elif self.tokenS=="N":
             pass
 
@@ -489,138 +489,29 @@ class CMTA(nn.Module):
 
 
         # pathomics decoder
-        cls_token_pathomics_decoder, _ = self.pathomics_decoder(
+        cls_token_pathomics_decoder, tokens_p_d = self.pathomics_decoder(
             pathomics_in_genomics.transpose(1, 0))  # cls token + patch tokens
         # genomics decoder
-        cls_token_genomics_decoder,_,Nloss2 = self.genomics_decoder(
+        cls_token_genomics_decoder,tokens_g_d,Nloss2 = self.genomics_decoder(
             genomics_in_pathomics.transpose(1, 0))  # cls token + patch tokens
-        # cls_token_pathomics_decoder, _ = self.genomics_decoder(patch_token_pathomics_encoder )
-        # cls_token_genomics_decoder, _ = self.genomics_decoder(patch_token_genomics_encoder)
-        # fusion
-        # print("cls_token_pathomics_encoder", cls_token_pathomics_encoder.shape)
-        # print("cls_token_genomics_encoder", cls_token_genomics_encoder.shape)
-        # print("cls_token_pathomics_decoder", cls_token_pathomics_decoder.shape)
-        # print("cls_token_genomics_decoder", cls_token_genomics_decoder.shape)
-        if self.fusion == "concat":
-            fusion = self.mm(
-                torch.concat(
-                    (
-                        (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
-                        (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
-                    ),
-                    dim=1,
-                )
-            )  # take cls token to make prediction
-            logits = self.classifier(fusion)
-        elif self.fusion == "Aconcat":
-            fusion = self.mm(
-                torch.concat(
-                    (
-                        (1 - self.alpha) * (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
-                        self.alpha * (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
-                    ),
-                    dim=1,
-                )
-            )  #
-            logits = self.classifier(fusion)
-        elif self.fusion == "fineCoarse":
-            fusion_coarse = self.mm(
-                torch.concat(
-                    (
-                        cls_token_pathomics_encoder,
-                        cls_token_genomics_encoder,
-                    ),
-                    dim=1
-                )
-            )
-            fusion_fine = self.mm(
-                torch.concat(
-                    (
-                        cls_token_pathomics_decoder,
-                        cls_token_genomics_decoder,
-                    ),
-                    dim=1
-                )
-            )
-            fusion=self.beta * fusion_fine + (1-self.beta) * fusion_coarse
-            logits = self.classifier(fusion)
-        elif self.fusion == "bilinear":
-            fusion = self.mm(
-                (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
-                (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
-            )  # take cls token to make prediction
-            logits = self.classifier(fusion)
-        elif self.fusion == "hyperbolic":
-            # Step 1: Compute the average of pathomics encoder and decoder cls tokens
-            # print("hyperbolic")
-            pathomics_avg = (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
-            genomics_avg = (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
 
-            # Step 2: Concatenate the averaged features from pathomics and genomics
-            concatenated_features = torch.cat((pathomics_avg, genomics_avg), dim=1)
+        if self.tokenS=="both":
+            patch_token_pathomics_decoder=self.token_selection(tokens_p_d, cls_token_pathomics_decoder,self.PT)
+            patch_token_genomics_decoder=self.token_selection(tokens_g_d, cls_token_genomics_decoder,self.GT)
+        elif self.tokenS=="P":
+            patch_token_pathomics_decoder = self.token_selection(tokens_p_d, cls_token_pathomics_decoder, self.PT)
+        elif self.tokenS=="G":
+            patch_token_genomics_decoder=self.token_selection(tokens_g_d, cls_token_genomics_decoder,self.GT)
+        elif self.tokenS=="N":
+            pass
+        p = patch_token_pathomics_decoder.reshape(patch_token_pathomics_decoder.shape[0], -1)
+        g = patch_token_genomics_decoder.reshape(patch_token_genomics_decoder.shape[0], -1)
 
-            # Step 3: Wrap the concatenated features as a tangent vector on the manifold
-            tangent_features = TangentTensor(data=concatenated_features, man_dim=1, manifold=manifold)
+        lmf = LMF(input_dims=(p.shape[0], g.shape[0]), output_dim=256, rank=4).to(p.device)
+        output = lmf(p, g)
+        logits = self.classifier(output)
+        # print(output.shape)  # should print torch.Size([1, 256])
 
-            # Step 4: Map the tangent vector to the manifold using the exponential map
-            hy_features = manifold.expmap(tangent_features)
-
-            # Step 5: Apply hyperbolic matrix multiplication to map features within the hyperbolic space
-            fusion_hy= self.hyperbolic_mm(hy_features)
-
-            # Define the origin point on the manifold for logmap
-            # origin = torch.zeros_like(fusion_hy.tensor)  # Assuming the origin is a zero tensor of the same shape
-
-            # Map the fusion tensor back to Euclidean space using the logarithmic map
-            # log_mapped_fusion = manifold.logmap(origin, fusion_hy)
-
-            # Step 7: Retrieve the tensor from the log-mapped structure
-
-            fusion_e = self.mm(
-                torch.concat(
-                    (
-                        (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
-                        (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
-                    ),
-                    dim=1,
-                )
-            )  # take cls token to make prediction
-
-            fusion = fusion_hy.tensor*self.HRate+fusion_e
-            logits = self.classifier(fusion)
-        elif self.fusion == "Gated":
-            hidden_size = 128
-            p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
-            g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
-            gated_classifier = GatedClassifier(256, 256, self.n_classes, hidden_size).to(p.device)
-            logits, z_gated = gated_classifier(p, g)
-        elif self.fusion == "LinearSum":
-            hidden_size = 128
-            p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
-            g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
-            linear_sum_classifier = LinearSumClassifier(256, 256, self.n_classes, hidden_size).to(p.device)
-            logits = linear_sum_classifier(p, g)
-        elif self.fusion == "MoE":
-            hidden_size = 128
-            p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
-            g=(cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
-            moe_classifier = MoEClassifier(256, 256, self.n_classes, hidden_size).to(p.device)
-            logits = moe_classifier(p, g)
-        elif self.fusion == "LMF":
-            p = (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
-            g = (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
-            lmf = LMF(input_dims=(256, 256), output_dim=256, rank=4).to(p.device)
-            output = lmf(p, g)
-            logits = self.classifier(output)
-            # print(output.shape)  # should print torch.Size([1, 256])
-
-        else:
-            raise NotImplementedError("Fusion [{}] is not implemented".format(self.fusion))
-        # fusion=( cls_token_genomics_decoder +  cls_token_genomics_encoder) / 2
-        # fusion = (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
-        # predict
-        # predict
-          # [1, n_classes]
         hazards = torch.sigmoid(logits)
         S = torch.cumprod(1 - hazards, dim=1)
         return hazards, S, cls_token_pathomics_encoder, cls_token_pathomics_decoder, cls_token_genomics_encoder, cls_token_genomics_decoder,Nloss2+Nloss1
