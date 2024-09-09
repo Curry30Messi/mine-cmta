@@ -517,7 +517,7 @@ class CMTA(nn.Module):
         p = patch_token_pathomics_decoder.reshape(patch_token_pathomics_decoder.shape[0], -1)
         g = patch_token_genomics_decoder.reshape(patch_token_genomics_decoder.shape[0], -1)
 
-        lmf = LMF(input_dims=(p.shape[0], g.shape[0]), output_dim=256, rank=4).to(p.device)
+        lmf = LMF(input_dims=(p.shape[1], g.shape[1]), output_dim=256, rank=4).to(p.device)
         output = lmf(p, g)
         logits = self.classifier(output)
         # print(output.shape)  # should print torch.Size([1, 256])
