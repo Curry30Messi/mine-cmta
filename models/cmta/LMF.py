@@ -325,6 +325,9 @@ class token_selection(nn.Module):
         topk_values, topk_indices = torch.topk(_patch_token, math.ceil(start_patch_token.size(1)*Temperature), dim=1)
         final_token = torch.gather(start_patch_token, 1, topk_indices.squeeze(1))  # Squeeze the last dimension here
 
+        print(f"start_patch_token shape: {start_patch_token.shape}")
+        print(f"topk_indices shape before squeeze: {topk_indices.shape}")
+        print(f"topk_indices shape after squeeze: {topk_indices.squeeze(1).shape}")
         return final_token
 
 
@@ -496,6 +499,10 @@ class CMTA(nn.Module):
             genomics_in_pathomics.transpose(1, 0))  # cls token + patch tokens
 
         if self.tokenS=="both":
+            print("tokens_p_d",tokens_p_d)
+            print("tokens_g_d",tokens_g_d)
+            print("cls_token_genomics_decoder",cls_token_genomics_decoder)
+            print("cls_token_pathomics_decoder", cls_token_pathomics_decoder)
             patch_token_pathomics_decoder=self.token_selection(tokens_p_d, cls_token_pathomics_decoder,self.PT)
             patch_token_genomics_decoder=self.token_selection(tokens_g_d, cls_token_genomics_decoder,self.GT)
         elif self.tokenS=="P":
