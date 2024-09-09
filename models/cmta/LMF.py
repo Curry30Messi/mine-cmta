@@ -302,7 +302,7 @@ class Transformer_G(nn.Module):
 
         return h[:, 0], h[:, 1:],Nloss1+Nloss2
 
-
+import math
 class token_selection(nn.Module):
     def __init__(self):
         super(token_selection, self).__init__()
@@ -322,11 +322,11 @@ class token_selection(nn.Module):
         patch_token = self.MLP_s(patch_token)
         patch_token = self.relu(self.dropout(patch_token))
         _patch_token = self.softmax(patch_token)
-        topk_values, topk_indices = torch.topk(_patch_token, math.ceil(start_patch_token.size(1)*Temperature), dim=1)
-        print(f"start_patch_token shape: {start_patch_token.shape}")
-        print(f"topk_indices shape before squeeze: {topk_indices.shape}")
-        print(f"topk_indices shape after squeeze: {topk_indices.squeeze(1).shape}")
-        final_token = torch.gather(start_patch_token, 1, topk_indices.squeeze(1))  # Squeeze the last dimension here
+        topk_values, topk_indices = torch.topk(_patch_token, max(math.ceil(start_patch_token.size(1)*Temperature),1), dim=1)
+        # print(f"start_patch_token shape: {start_patch_token.shape}")
+        # print(f"topk_indices shape before squeeze: {topk_indices.shape}")
+        # print(f"topk_indices shape after squeeze: {topk_indices.squeeze(1).shape}")
+        final_token = torch.gather(start_patch_token, 1, topk_indices)  # Squeeze the last dimension here
 
         # print(f"start_patch_token shape: {start_patch_token.shape}")
         # print(f"topk_indices shape before squeeze: {topk_indices.shape}")
@@ -502,10 +502,10 @@ class CMTA(nn.Module):
             genomics_in_pathomics.transpose(1, 0))  # cls token + patch tokens
 
         if self.tokenS=="both":
-            print("tokens_p_d:",tokens_p_d.shape)
-            print("tokens_g_d:",tokens_g_d.shape)
-            print("cls_token_genomics_decoder:",cls_token_genomics_decoder.shape)
-            print("cls_token_pathomics_decoder:", cls_token_pathomics_decoder.shape)
+            # print("tokens_p_d:",tokens_p_d.shape)
+            # print("tokens_g_d:",tokens_g_d.shape)
+            # print("cls_token_genomics_decoder:",cls_token_genomics_decoder.shape)
+            # print("cls_token_pathomics_decoder:", cls_token_pathomics_decoder.shape)
             patch_token_pathomics_decoder=self.token_selection(tokens_p_d, cls_token_pathomics_decoder,self.PT)
             patch_token_genomics_decoder=self.token_selection(tokens_g_d, cls_token_genomics_decoder,self.GT)
         elif self.tokenS=="P":

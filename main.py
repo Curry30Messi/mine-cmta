@@ -32,7 +32,8 @@ def main(args):
     set_seed(args.seed)
 
     # create results directory
-    results_dir = "./results/{dataset}/[{fusion}]-[{alpha}]-[{time}]".format(
+    results_dir = "./results/{dataset}/model-[{model}]-[{fusion}]-[{alpha}]-[{time}]".format(
+        model=args.model,
         dataset=args.dataset,
         fusion=args.fusion,
         alpha=args.alpha,
@@ -163,7 +164,7 @@ def main(args):
         writer.writerow(best_score)
         writer.writerow(elapsed_time_list)
     mean_score=np.mean(best_score[1:6])
-    new_dir_name = f"Model_{args.model}_{results_dir}_{mean_score:.2f}__{args.modality}__[{args.GT}_{args.PT}]__[{args.lr}]_{args.weight_decay}]"
+    new_dir_name = f"{results_dir}_{mean_score:.2f}__{args.modality}__[{args.GT}_{args.PT}]__[{args.lr}]_{args.weight_decay}]"
     os.rename(results_dir, new_dir_name)
 if __name__ == "__main__":
     args = parse_args()
