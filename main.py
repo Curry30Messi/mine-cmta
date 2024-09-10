@@ -49,9 +49,10 @@ def main(args):
     header = ["folds", "fold 0", "fold 1", "fold 2", "fold 3", "fold 4", "mean", "std"]
     best_epoch = ["best epoch"]
     best_score = ["best cindex"]
-
+    commit_hash = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip()
     print("=======================================")
     print("所有参数：", vars(args))
+    print("git info: ",commit_hash)
     print("=======================================")
 
 
@@ -158,7 +159,7 @@ def main(args):
     csv_path = os.path.join(results_dir, "results.csv")
     print("############", csv_path)
     elapsed_time_list = [elapsed_time] * 8
-    commit_hash = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip()
+
     with open(csv_path, "w", encoding="utf-8", newline="") as fp:
         writer = csv.writer(fp)
         writer.writerow(header)
@@ -166,7 +167,7 @@ def main(args):
         writer.writerow(best_score)
         writer.writerow(elapsed_time_list)
     mean_score=np.mean(best_score[1:6])
-    new_dir_name = f"{results_dir}_{mean_score:.2f}__git{commit_hash[:7]}__{args.modality}__[{args.GT}_{args.PT}]__[{args.lr}]_{args.weight_decay}]"
+    new_dir_name = f"{results_dir}_{mean_score:.2f}__{args.modality}__[{args.GT}_{args.PT}]__[{args.lr}]_{args.weight_decay}]"
     os.rename(results_dir, new_dir_name)
 if __name__ == "__main__":
     args = parse_args()
