@@ -49,6 +49,7 @@ def main(args):
     header = ["folds", "fold 0", "fold 1", "fold 2", "fold 3", "fold 4", "mean", "std"]
     best_epoch = ["best epoch"]
     best_score = ["best cindex"]
+    os.environ['PATH'] += ':/usr/bin'
     commit_hash = subprocess.run(['/usr/bin/git', 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip()
     print("=======================================")
     print("所有参数：", vars(args))
