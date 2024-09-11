@@ -274,7 +274,7 @@ class Generic_MIL_Survival_Dataset(Generic_WSI_Survival_Dataset):
                     for slide_id in slide_ids:
                         try:
                             wsi_path = os.path.join(data_dir, 'pt_files', '{}.pt'.format(slide_id.rstrip('.svs')))
-                            wsi_bag = torch.load(wsi_path)
+                            wsi_bag = torch.load(wsi_path,weights_only=True)
                             path_features.append(wsi_bag)
                         except FileNotFoundError:
                             print('FileNotFound: ', wsi_path)
