@@ -395,6 +395,9 @@ class CMTA(nn.Module):
         self.hyperbolic_relu = hnn.HReLU(manifold=manifold)
         self.token_selection = token_selection()
 
+        self.mm = nn.Sequential(
+            *[nn.Linear(hidden[-1] * 2, hidden[-1]), nn.ReLU(), nn.Linear(hidden[-1], hidden[-1]), nn.ReLU()]
+        )
 
         # Classification Layer
         if self.fusion == "Aconcat" or self.fusion == "concat":
@@ -512,38 +515,38 @@ class CMTA(nn.Module):
                 )
             )  # take cls token to make prediction
             logits = self.classifier(fusion)
-        elif self.fusion == "Aconcat":
-            fusion = self.mm(
-                torch.concat(
-                    (
-                        (1 - self.alpha) * (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
-                        self.alpha * (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
-                    ),
-                    dim=1,
-                )
-            )  #
-            logits = self.classifier(fusion)
-        elif self.fusion == "fineCoarse":
-            fusion_coarse = self.mm(
-                torch.concat(
-                    (
-                        cls_token_pathomics_encoder,
-                        cls_token_genomics_encoder,
-                    ),
-                    dim=1
-                )
-            )
-            fusion_fine = self.mm(
-                torch.concat(
-                    (
-                        cls_token_pathomics_decoder,
-                        cls_token_genomics_decoder,
-                    ),
-                    dim=1
-                )
-            )
-            fusion=self.beta * fusion_fine + (1-self.beta) * fusion_coarse
-            logits = self.classifier(fusion)
+        # elif self.fusion == "Aconcat":
+        #     fusion = self.mm(
+        #         torch.concat(
+        #             (
+        #                 (1 - self.alpha) * (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
+        #                 self.alpha * (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
+        #             ),
+        #             dim=1,
+        #         )
+        #     )  #
+        #     logits = self.classifier(fusion)
+        # elif self.fusion == "fineCoarse":
+        #     fusion_coarse = self.mm(
+        #         torch.concat(
+        #             (
+        #                 cls_token_pathomics_encoder,
+        #                 cls_token_genomics_encoder,
+        #             ),
+        #             dim=1
+        #         )
+        #     )
+        #     fusion_fine = self.mm(
+        #         torch.concat(
+        #             (
+        #                 cls_token_pathomics_decoder,
+        #                 cls_token_genomics_decoder,
+        #             ),
+        #             dim=1
+        #         )
+        #     )
+        #     fusion=self.beta * fusion_fine + (1-self.beta) * fusion_coarse
+        #     logits = self.classifier(fusion)
         elif self.fusion == "bilinear":
             fusion = self.mm(
                 (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
@@ -586,7 +589,7 @@ class CMTA(nn.Module):
                 )
             )  # take cls token to make prediction
 
-            fusion = fusion_hy.tensor*self.HRate+fusion_e
+            fusion = fusion_hy.tensor*self.Rate+fusion_e
             logits = self.classifier(fusion)
         elif self.fusion == "Gated":
             hidden_size = 128
@@ -611,7 +614,17 @@ class CMTA(nn.Module):
             g = (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
             lmf = LMF(input_dims=(256, 256), output_dim=256, rank=4).to(p.device)
             output = lmf(p, g)
-            logits = self.classifier(output)
+            output_concat = self.mm(
+                torch.concat(
+                    (
+                        (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
+                        (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
+                    ),
+                    dim=1,
+                )
+            )
+            output_final=output_concat+output*self.Rate
+            logits = self.classifier(output_final)
             # print(output.shape)  # should print torch.Size([1, 256])
 
         else:
