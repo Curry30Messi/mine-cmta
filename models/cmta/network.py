@@ -339,7 +339,7 @@ from hypll import nn as hnn
 manifold = PoincareBall(c=Curvature(requires_grad=True))
 
 class CMTA(nn.Module):
-    def __init__(self, omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4, fusion="concat", model_size="small",alpha=0.5,beta=0.5,tokenS="both",GT=0.5,PT=0.5,HRate=1e-8):
+    def __init__(self, omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4, fusion="concat", model_size="small",alpha=0.5,beta=0.5,tokenS="both",GT=0.5,PT=0.5,Rate=1e-8):
         super(CMTA, self).__init__()
         self.omic_sizes = omic_sizes
         self.n_classes = n_classes
@@ -349,7 +349,7 @@ class CMTA(nn.Module):
         self.tokenS=tokenS
         self.GT=GT
         self.PT=PT
-        self.HRate=HRate
+        self.Rate=Rate
         ###
         self.size_dict = {
             "pathomics": {"small": [1024, 256, 256], "large": [1024, 512, 256]},
