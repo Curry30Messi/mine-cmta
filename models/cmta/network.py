@@ -273,6 +273,8 @@ class Transformer_G(nn.Module):
         self.layer1 = TransLayer(dim=feature_dim)
         self.layer2 = TransLayer(dim=feature_dim)
         self.moe = MoE(input_dim=feature_dim, num_experts=num_experts, k=k)
+        # self.moe1 = MoE(input_dim=feature_dim, num_experts=8, k=2)
+        # self.moe2 = MoE(input_dim=feature_dim, num_experts=8, k=1)
         self.norm = nn.LayerNorm(feature_dim)
         # Decoder
 
@@ -302,7 +304,17 @@ class Transformer_G(nn.Module):
 
         return h[:, 0], h[:, 1:],Nloss1+Nloss2
 
-
+def random_mask_features(features, mask_prob):
+    """
+    :param features: (batch_size, num_feature, feature_dim)
+    :param mask_prob: mask prob
+    :return: masked
+    """
+    # 生成和features形状相同的二值掩码矩阵
+    mask = torch.rand(features.shape) > mask_prob
+    # 将特征值通过掩码矩阵乘以0，实现mask操作
+    masked_features = features * mask.float()
+    return masked_features
 class token_selection(nn.Module):
     def __init__(self):
         super(token_selection, self).__init__()

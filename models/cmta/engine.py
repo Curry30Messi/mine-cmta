@@ -165,8 +165,17 @@ class Engine(object):
         plot_loss_index(train_loss_all, train_index_all, val_loss_all, val_index_all, self.results_dir,self.fold)
         return self.best_score, self.best_epoch
 
-
-
+    def random_mask_features(features, mask_prob):
+        """
+        :param features: (batch_size, num_feature, feature_dim)
+        :param mask_prob: mask prob
+        :return: masked
+        """
+        # 生成和features形状相同的二值掩码矩阵
+        mask = torch.rand(features.shape) > mask_prob
+        # 将特征值通过掩码矩阵乘以0，实现mask操作
+        masked_features = features * mask.float()
+        return masked_features
 
     def train(self, data_loader, model, criterion, optimizer):
 
