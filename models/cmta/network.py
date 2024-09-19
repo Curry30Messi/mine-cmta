@@ -228,15 +228,19 @@ class PPEG(nn.Module):
 
 
 class Transformer_P(nn.Module):
-    def __init__(self, feature_dim=512, num_experts=4, k=2):
+    def __init__(self, feature_dim=512, num_experts=4, k=2,pos='ppeg'):
         super(Transformer_P, self).__init__()
         # Encoder
-        self.pos_layer = PPEG(dim=feature_dim)
-        self.pos_layer1 = EPEG(dim=feature_dim,epeg_2d=False)
+
         self.cls_token = nn.Parameter(torch.randn(1, 1, feature_dim))
         nn.init.normal_(self.cls_token, std=1e-6)
         self.layer1 = TransLayer(dim=feature_dim)
         self.layer2 = TransLayer(dim=feature_dim)
+        self.pos=pos
+        if self.pos == 'ppeg':
+            self.pos_layer = PPEG(dim=feature_dim)
+        elif self.pos == 'epeg':
+            self.pos_layer = EPEG(dim=feature_dim, epeg_2d=False)
 
         self.norm = nn.LayerNorm(feature_dim)
         # Decoder
@@ -255,10 +259,9 @@ class Transformer_P(nn.Module):
         # ---->MoE layer
         #   h = self.moe(h)  # [B, N, 512]
         # ---->PPEG
-        if pos == 'ppeg':
-            h = self.pos_layer(h, _H, _W)  # [B, N, 512]
-        elif pos== 'epeg':
-            h = self.pos_layer1(h, _H, _W)
+
+        h = self.pos_layer(h, _H, _W)  # [B, N, 512]
+
         # ---->Translayer x2
         h = self.layer2(h)  # [B, N, 512]
         # ---->cls_token
