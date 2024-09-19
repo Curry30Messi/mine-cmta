@@ -92,6 +92,7 @@ def parse_args():
     parser.add_argument("--LossRate", type=float, default=1e-5, help="MoELoss rate")
     parser.add_argument("--Rate", type=float, default=1e-10, help="Fusion rate")
     parser.add_argument("--modality", type=str, choices=["Both", "G", "P"],default="Both",help= "Modality to test")
+    parser.add_argument("--pos", type=str, choices=["ppeg", "epeg"], default="ppeg", help="Positional encoder")
     # =======================================
     args = parser.parse_args()
     return args

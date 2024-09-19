@@ -124,6 +124,7 @@ def main(args):
                 "GT":args.GT,
                 "PT":args.PT,
                 "Rate":args.Rate,
+                "pos":args.pos,
             }
             model = CMTA(**model_dict)
             criterion = define_loss(args)

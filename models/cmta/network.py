@@ -232,6 +232,7 @@ class Transformer_P(nn.Module):
         super(Transformer_P, self).__init__()
         # Encoder
         self.pos_layer = PPEG(dim=feature_dim)
+        self.pos_layer1 = EPEG(dim=feature_dim,epeg_2d=False)
         self.cls_token = nn.Parameter(torch.randn(1, 1, feature_dim))
         nn.init.normal_(self.cls_token, std=1e-6)
         self.layer1 = TransLayer(dim=feature_dim)
@@ -240,7 +241,7 @@ class Transformer_P(nn.Module):
         self.norm = nn.LayerNorm(feature_dim)
         # Decoder
 
-    def forward(self, features):
+    def forward(self, features,pos='ppeg'):
         # ---->pad
         H = features.shape[1]
         _H, _W = int(np.ceil(np.sqrt(H))), int(np.ceil(np.sqrt(H)))
@@ -254,7 +255,10 @@ class Transformer_P(nn.Module):
         # ---->MoE layer
         #   h = self.moe(h)  # [B, N, 512]
         # ---->PPEG
-        h = self.pos_layer(h, _H, _W)  # [B, N, 512]
+        if pos == 'ppeg':
+            h = self.pos_layer(h, _H, _W)  # [B, N, 512]
+        elif pos== 'epeg':
+            h = self.pos_layer1(h, _H, _W)
         # ---->Translayer x2
         h = self.layer2(h)  # [B, N, 512]
         # ---->cls_token
@@ -262,6 +266,23 @@ class Transformer_P(nn.Module):
 
         return h[:, 0], h[:, 1:]
 
+class EPEG(nn.Module):
+    def __init__(self, dim, epeg_k=15, epeg_type='attn', epeg_2d=False):
+        super(EPEG, self).__init__()
+        padding = epeg_k // 2
+        if epeg_2d:
+            self.pe = nn.Conv2d(dim, dim, epeg_k, padding=padding, groups=dim)
+        else:
+            self.pe = nn.Conv2d(dim, dim, (epeg_k, 1), padding=(padding, 0), groups=dim)
+
+    def forward(self, x, H, W):
+        B, _, C = x.shape
+        cls_token, feat_token = x[:, 0], x[:, 1:]
+        cnn_feat = feat_token.transpose(1, 2).view(B, C, H, W)
+        x = self.pe(cnn_feat)
+        x = x.flatten(2).transpose(1, 2)
+        x = torch.cat((cls_token.unsqueeze(1), x), dim=1)
+        return x
 
 class Transformer_G(nn.Module):
     def __init__(self, feature_dim=512, num_experts=4, k=2):
@@ -310,11 +331,13 @@ def random_mask_features(features, mask_prob):
     :param mask_prob: mask prob
     :return: masked
     """
-    # 生成和features形状相同的二值掩码矩阵
+
     mask = torch.rand(features.shape) > mask_prob
-    # 将特征值通过掩码矩阵乘以0，实现mask操作
+
     masked_features = features * mask.float()
     return masked_features
+
+
 class token_selection(nn.Module):
     def __init__(self):
         super(token_selection, self).__init__()
@@ -351,7 +374,7 @@ from hypll import nn as hnn
 manifold = PoincareBall(c=Curvature(requires_grad=True))
 
 class CMTA(nn.Module):
-    def __init__(self, omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4, fusion="concat", model_size="small",alpha=0.5,beta=0.5,tokenS="both",GT=0.5,PT=0.5,Rate=1e-8):
+    def __init__(self, omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4, fusion="concat", model_size="small",alpha=0.5,beta=0.5,tokenS="both",GT=0.5,PT=0.5,Rate=1e-8,pos='ppeg'):
         super(CMTA, self).__init__()
         self.omic_sizes = omic_sizes
         self.n_classes = n_classes
@@ -362,6 +385,7 @@ class CMTA(nn.Module):
         self.GT=GT
         self.PT=PT
         self.Rate=Rate
+        self.pos=pos
         ###
         self.size_dict = {
             "pathomics": {"small": [1024, 256, 256], "large": [1024, 512, 256]},
@@ -387,9 +411,9 @@ class CMTA(nn.Module):
 
         # Pathomics Transformer
         # Encoder
-        self.pathomics_encoder = Transformer_P(feature_dim=hidden[-1])
+        self.pathomics_encoder = Transformer_P(feature_dim=hidden[-1],pos=self.pos)
         # Decoder
-        self.pathomics_decoder = Transformer_P(feature_dim=hidden[-1])
+        self.pathomics_decoder = Transformer_P(feature_dim=hidden[-1],pos=self.pos)
 
         # P->G Attention
         self.P_in_G_Att = MultiheadAttention(embed_dim=256, num_heads=1)
