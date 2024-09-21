@@ -44,6 +44,7 @@ class FlushFile:
 
 
 def main(args):
+    global flops, params
     start_time = datetime.now()
     # set random seed for reproduction
     set_seed(args.seed)
@@ -72,7 +73,7 @@ def main(args):
     print("git info: ",commit_hash)
     print("=======================================")
 
-    flops, params=0.0,0.0
+    # flops, params=0.0,0.0
 
     # start 5-fold CV evaluation.
     for fold in range(5):

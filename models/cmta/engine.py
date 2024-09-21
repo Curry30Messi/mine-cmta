@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from tqdm import tqdm
-
+from fvcore.nn import FlopCountAnalysis, parameter_count_table
 from sksurv.metrics import concordance_index_censored
 from thop import profile, clever_format
 import torch.optim
@@ -119,6 +119,7 @@ class Engine(object):
         self.filename_best = None
 
     def learning(self, model, train_loader, val_loader, criterion, optimizer, scheduler):
+        global flops, params
         if torch.cuda.is_available():
             model = model.cuda()
 
@@ -139,7 +140,7 @@ class Engine(object):
         train_index_all=[]
         val_loss_all=[]
         val_index_all=[]
-        flops, params=0.0,0.0
+
         for epoch in range(self.args.num_epoch):
             self.epoch = epoch
             # train for one epoch
@@ -268,9 +269,24 @@ class Engine(object):
 
 
             if batch_idx == len(data_loader) - 1:
-                input_data = (data_WSI, data_omic1, data_omic2, data_omic3, data_omic4, data_omic5, data_omic6)
-                flops, params = profile(model, inputs=input_data)
-                flops, params = clever_format([flops, params], "%.3f")
+                input_data = {
+                    "x_path": data_WSI,
+                    "x_omic1": data_omic1,
+                    "x_omic2": data_omic2,
+                    "x_omic3": data_omic3,
+                    "x_omic4": data_omic4,
+                    "x_omic5": data_omic5,
+                    "x_omic6": data_omic6
+                }
+
+                # 将 inputs 参数改为字典传入 profile
+                flops = FlopCountAnalysis(model, input_data)
+                # print(f"FLOPs: {flops.total()}")
+
+                # 使用 fvcore 计算参数量
+                params = parameter_count_table(model)
+                # print(f"参数量：\n{params}")
+
                 # print(f"FLOPs: {flops}, Parameters: {params}")
 
             # loss.backward()
