@@ -459,8 +459,8 @@ from torch import nn
 from hypll import nn as hnn
 # from fusion import GatedClassifier,LinearSumClassifier,ConcatenateClassifier,MoEClassifier
 
-
-manifold = PoincareBall(c=Curvature(requires_grad=True))
+#
+# manifold = PoincareBall(c=Curvature(requires_grad=True))
 
 class CMTA(nn.Module):
     def __init__(self, omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4, fusion="concat", model_size="small",alpha=0.5,beta=0.5,tokenS="both",GT=0.5,PT=0.5,Rate=1e-8,pos='ppeg'):
@@ -515,9 +515,9 @@ class CMTA(nn.Module):
         # Decoder
         self.genomics_decoder = Transformer_G(feature_dim=hidden[-1])
 
-        self.hyperbolic_fc1 = hnn.HLinear(in_features=hidden[-1] * 2, out_features=hidden[-1], manifold=manifold)
-        self.hyperbolic_fc2 = hnn.HLinear(in_features=hidden[-1], out_features=hidden[-1], manifold=manifold)
-        self.hyperbolic_relu = hnn.HReLU(manifold=manifold)
+        # self.hyperbolic_fc1 = hnn.HLinear(in_features=hidden[-1] * 2, out_features=hidden[-1], manifold=manifold)
+        # self.hyperbolic_fc2 = hnn.HLinear(in_features=hidden[-1], out_features=hidden[-1], manifold=manifold)
+        # self.hyperbolic_relu = hnn.HReLU(manifold=manifold)
         self.token_selection = token_selection()
 
         self.mm = nn.Sequential(
@@ -536,17 +536,17 @@ class CMTA(nn.Module):
         elif self.fusion == "bilinear":
             self.mm = BilinearFusion(dim1=hidden[-1], dim2=hidden[-1], scale_dim1=8, scale_dim2=8, mmhid=hidden[-1])
 
-        elif self.fusion == "hyperbolic":
-            self.hyperbolic_mm = nn.Sequential(
-                self.hyperbolic_fc1,
-                self.hyperbolic_relu,
-                self.hyperbolic_fc2,
-                self.hyperbolic_relu,
-                self.hyperbolic_fc2
-            )
-            self.mm = nn.Sequential(
-                *[nn.Linear(hidden[-1] * 2, hidden[-1]), nn.ReLU(), nn.Linear(hidden[-1], hidden[-1]), nn.ReLU()]
-            )
+        # elif self.fusion == "hyperbolic":
+        #     self.hyperbolic_mm = nn.Sequential(
+        #         self.hyperbolic_fc1,
+        #         self.hyperbolic_relu,
+        #         self.hyperbolic_fc2,
+        #         self.hyperbolic_relu,
+        #         self.hyperbolic_fc2
+        #     )
+        #     self.mm = nn.Sequential(
+        #         *[nn.Linear(hidden[-1] * 2, hidden[-1]), nn.ReLU(), nn.Linear(hidden[-1], hidden[-1]), nn.ReLU()]
+        #     )
         else:
             pass
 
@@ -678,44 +678,44 @@ class CMTA(nn.Module):
                 (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
             )  # take cls token to make prediction
             logits = self.classifier(fusion)
-        elif self.fusion == "hyperbolic":
-            # Step 1: Compute the average of pathomics encoder and decoder cls tokens
-            # print("hyperbolic")
-            pathomics_avg = (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
-            genomics_avg = (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
-
-            # Step 2: Concatenate the averaged features from pathomics and genomics
-            concatenated_features = torch.cat((pathomics_avg, genomics_avg), dim=1)
-
-            # Step 3: Wrap the concatenated features as a tangent vector on the manifold
-            tangent_features = TangentTensor(data=concatenated_features, man_dim=1, manifold=manifold)
-
-            # Step 4: Map the tangent vector to the manifold using the exponential map
-            hy_features = manifold.expmap(tangent_features)
-
-            # Step 5: Apply hyperbolic matrix multiplication to map features within the hyperbolic space
-            fusion_hy= self.hyperbolic_mm(hy_features)
-
-            # Define the origin point on the manifold for logmap
-            # origin = torch.zeros_like(fusion_hy.tensor)  # Assuming the origin is a zero tensor of the same shape
-
-            # Map the fusion tensor back to Euclidean space using the logarithmic map
-            # log_mapped_fusion = manifold.logmap(origin, fusion_hy)
-
-            # Step 7: Retrieve the tensor from the log-mapped structure
-
-            fusion_e = self.mm(
-                torch.concat(
-                    (
-                        (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
-                        (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
-                    ),
-                    dim=1,
-                )
-            )  # take cls token to make prediction
-
-            fusion = fusion_hy.tensor*self.Rate+fusion_e
-            logits = self.classifier(fusion)
+        # elif self.fusion == "hyperbolic":
+        #     # Step 1: Compute the average of pathomics encoder and decoder cls tokens
+        #     # print("hyperbolic")
+        #     pathomics_avg = (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
+        #     genomics_avg = (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2
+        #
+        #     # Step 2: Concatenate the averaged features from pathomics and genomics
+        #     concatenated_features = torch.cat((pathomics_avg, genomics_avg), dim=1)
+        #
+        #     # Step 3: Wrap the concatenated features as a tangent vector on the manifold
+        #     tangent_features = TangentTensor(data=concatenated_features, man_dim=1, manifold=manifold)
+        #
+        #     # Step 4: Map the tangent vector to the manifold using the exponential map
+        #     hy_features = manifold.expmap(tangent_features)
+        #
+        #     # Step 5: Apply hyperbolic matrix multiplication to map features within the hyperbolic space
+        #     fusion_hy= self.hyperbolic_mm(hy_features)
+        #
+        #     # Define the origin point on the manifold for logmap
+        #     # origin = torch.zeros_like(fusion_hy.tensor)  # Assuming the origin is a zero tensor of the same shape
+        #
+        #     # Map the fusion tensor back to Euclidean space using the logarithmic map
+        #     # log_mapped_fusion = manifold.logmap(origin, fusion_hy)
+        #
+        #     # Step 7: Retrieve the tensor from the log-mapped structure
+        #
+        #     fusion_e = self.mm(
+        #         torch.concat(
+        #             (
+        #                 (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
+        #                 (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
+        #             ),
+        #             dim=1,
+        #         )
+        #     )  # take cls token to make prediction
+        #
+        #     fusion = fusion_hy.tensor*self.Rate+fusion_e
+        #     logits = self.classifier(fusion)
         elif self.fusion == "Gated":
             hidden_size = 128
             p=(cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2
