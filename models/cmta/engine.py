@@ -144,6 +144,8 @@ class Engine(object):
             self.epoch = epoch
             # train for one epoch
             train_loss,train_index,flops, params=self.train(train_loader, model, criterion, optimizer)
+            if epoch == 0:
+                print('flops:',flops,'params:',params)
             train_loss_all.append(train_loss)
             train_index_all.append(train_index)
             # evaluate on validation set
