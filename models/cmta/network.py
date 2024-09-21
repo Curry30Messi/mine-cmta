@@ -132,6 +132,38 @@ def dissimilarity_loss(A, B):
     loss = (1 / (euclidean_distance + 1e-8)).mean()
     return loss
 
+
+class CNNExpert(nn.Module):
+    def __init__(self, input_dim, hidden_dim):
+        super(CNNExpert, self).__init__()
+        self.conv1 = nn.Conv2d(input_dim, hidden_dim, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(hidden_dim)
+        self.relu = nn.ReLU()
+        self.conv2 = nn.Conv2d(hidden_dim, input_dim, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(input_dim)
+
+    def forward(self, x):
+        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.bn2(self.conv2(x))
+        return x
+
+# SNNExpert 基于 SNN_Block 的多层感知机模型
+class SNNExpert(nn.Module):
+    def __init__(self, input_dim, hidden_dim, dropout=0.25):
+        super(SNNExpert, self).__init__()
+        # 使用 SNN_Block 进行特征处理
+        self.snn_block1 = SNN_Block(input_dim, hidden_dim, dropout)
+        self.snn_block2 = SNN_Block(hidden_dim, input_dim, dropout)
+
+    def forward(self, x):
+        # 通过第一个 SNN_Block
+        x = self.snn_block1(x)
+        # 通过第二个 SNN_Block
+        x = self.snn_block2(x)
+        return x
+
+
+
 # 定义 FFNExpert 类
 class FFNExpert(nn.Module):
     def __init__(self, input_dim, hidden_dim):
@@ -340,6 +372,60 @@ def random_mask_features(features, mask_prob):
     masked_features = features * mask.float()
     return masked_features
 
+
+import torch
+import torch.nn as nn
+import math
+
+
+# class token_selection(nn.Module):
+#     def __init__(self):
+#         super(token_selection, self).__init__()
+#         self.MLP_f = nn.Linear(256, 128)
+#         self.MLP_s = nn.Linear(256, 256)
+#         self.softmax = nn.Softmax(dim=1)
+#         self.relu = nn.ReLU()
+#         self.dropout = nn.Dropout(0.25)
+#
+#         # 新增router模块，用于动态生成Temperature
+#         self.router = nn.Sequential(
+#             nn.Linear(256, 128),  # 使用cls_token生成
+#             nn.ReLU(),
+#             nn.Linear(128, 1),  # 输出为1维，即选择比例
+#             nn.Sigmoid()  # 将输出限制在(0, 1)之间
+#         )
+#
+#     def forward(self, start_patch_token, cls_token):
+#         # 通过router生成动态的选择比例
+#         Temperature = self.router(cls_token)  # 生成比例，形状为(batch_size, 1)
+#         Temperature = Temperature.squeeze()  # 将其变为(batch_size)的一维向量
+#
+#         # 处理patch token
+#         half_token_patch = self.MLP_f(start_patch_token)
+#         half_token_patch = self.relu(self.dropout(half_token_patch))
+#
+#         # 处理cls token
+#         half_token_cls = self.MLP_f(cls_token)
+#         half_token_cls = half_token_cls.unsqueeze(1)
+#         half_token_cls = half_token_cls.repeat(1, start_patch_token.size(1), 1)
+#
+#         # 拼接patch和cls token
+#         patch_token = torch.cat([half_token_cls, half_token_patch], dim=2)
+#         patch_token = self.MLP_s(patch_token)
+#         patch_token = self.relu(self.dropout(patch_token))
+#
+#         # 计算概率分布
+#         _patch_token = self.softmax(patch_token)
+#
+#         # 使用生成的Temperature选择topk token
+#         topk_values, topk_indices = torch.topk(_patch_token, torch.ceil(start_patch_token.size(1) * Temperature).int(),
+#                                                dim=1)
+#
+#         # 选出最终的token
+#         final_token = torch.gather(start_patch_token, 1, topk_indices.squeeze(1))  # Squeeze最后的维度
+#
+#         return final_token
+#
 
 class token_selection(nn.Module):
     def __init__(self):

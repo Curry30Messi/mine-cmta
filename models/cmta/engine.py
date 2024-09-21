@@ -3,7 +3,7 @@ import numpy as np
 from tqdm import tqdm
 
 from sksurv.metrics import concordance_index_censored
-
+from thop import profile, clever_format
 import torch.optim
 import torch.nn.parallel
 
@@ -139,10 +139,11 @@ class Engine(object):
         train_index_all=[]
         val_loss_all=[]
         val_index_all=[]
+        flops, params=0.0,0.0
         for epoch in range(self.args.num_epoch):
             self.epoch = epoch
             # train for one epoch
-            train_loss,train_index=self.train(train_loader, model, criterion, optimizer)
+            train_loss,train_index,flops, params=self.train(train_loader, model, criterion, optimizer)
             train_loss_all.append(train_loss)
             train_index_all.append(train_index)
             # evaluate on validation set
@@ -163,7 +164,7 @@ class Engine(object):
                 scheduler.step()
             print('>')
         plot_loss_index(train_loss_all, train_index_all, val_loss_all, val_index_all, self.results_dir,self.fold)
-        return self.best_score, self.best_epoch
+        return self.best_score, self.best_epoch,flops, params
 
     def random_mask_features(features, mask_prob):
         """
@@ -184,6 +185,7 @@ class Engine(object):
         all_risk_scores = np.zeros((len(data_loader)))
         all_censorships = np.zeros((len(data_loader)))
         all_event_times = np.zeros((len(data_loader)))
+        flops, params=0.0,0.0
         dataloader = tqdm(data_loader, desc='Train Epoch: {}'.format(self.epoch))
         for batch_idx, (data_WSI, data_omic1, data_omic2, data_omic3, data_omic4, data_omic5, data_omic6, label, event_time,
                         c) in enumerate(dataloader):
@@ -263,6 +265,11 @@ class Engine(object):
 
 
 
+            if batch_idx == len(data_loader) - 1:
+                input_data = (data_WSI, data_omic1, data_omic2, data_omic3, data_omic4, data_omic5, data_omic6)
+                flops, params = profile(model, inputs=input_data)
+                flops, params = clever_format([flops, params], "%.3f")
+                # print(f"FLOPs: {flops}, Parameters: {params}")
 
             # loss.backward()
             # optimizer.step()
@@ -277,7 +284,7 @@ class Engine(object):
         if self.writer:
             self.writer.add_scalar('train/loss', train_loss, self.epoch)
             self.writer.add_scalar('train/c_index', c_index, self.epoch)
-        return train_loss,c_index
+        return train_loss,c_index,flops, params
 
     def validate(self, data_loader, model, criterion,modality):
 
