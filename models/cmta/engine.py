@@ -102,6 +102,14 @@ def plot_loss_index(train_loss_all, train_index_all, val_loss_all, val_index_all
     plt.savefig(os.path.join(results_dir, f'combined_loss_index__{fold}.png'))
     plt.close()
 
+class ModelWrapper(torch.nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forward(self, inputs):
+        return self.model(**inputs)
+
 class Engine(object):
     def __init__(self, args, results_dir, fold):
         self.args = args
@@ -267,7 +275,7 @@ class Engine(object):
 
 
 
-            if batch_idx == len(data_loader) - 1 and epoch==0:
+            if batch_idx == 0 and epoch==0:
                 input_data = {
                     "x_path": data_WSI,
                     "x_omic1": data_omic1,
@@ -279,7 +287,8 @@ class Engine(object):
                 }
 
                 # 将 inputs 参数改为字典传入 profile
-                flops = FlopCountAnalysis(model, input_data)
+                wrapped_model = ModelWrapper(model)
+                flops = FlopCountAnalysis(wrapped_model, (input_data,))
                 print(f"FLOPs: {flops.total()}")
 
                 # 使用 fvcore 计算参数量
