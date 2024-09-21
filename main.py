@@ -44,7 +44,7 @@ class FlushFile:
 
 
 def main(args):
-    global flops, params
+    # global flops, params
     start_time = datetime.now()
     # set random seed for reproduction
     set_seed(args.seed)
@@ -159,7 +159,7 @@ def main(args):
                 "Model [{}] is not implemented".format(args.model)
             )
         # start training
-        score, epoch,flops, params = engine.learning(
+        score, epoch= engine.learning(
             model, train_loader, val_loader, criterion, optimizer, scheduler
         )
         # save best score and epoch for each fold
@@ -186,10 +186,10 @@ def main(args):
         writer.writerow(best_score)
         writer.writerow(elapsed_time_list)
     mean_score=np.mean(best_score[1:6])
-    print("=========================")
-    print('flops', flops)
-    print("params", params)
-    print("=========================")
+    # print("=========================")
+    # print('flops', flops)
+    # print("params", params)
+    # print("=========================")
     new_dir_name = f"{results_dir}_{mean_score:.2f}__{args.modality}__[{args.GT}_{args.PT}]__[{args.lr}]_{args.weight_decay}]"
     os.rename(results_dir, new_dir_name)
 if __name__ == "__main__":

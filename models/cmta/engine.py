@@ -119,7 +119,7 @@ class Engine(object):
         self.filename_best = None
 
     def learning(self, model, train_loader, val_loader, criterion, optimizer, scheduler):
-        global flops, params
+
         if torch.cuda.is_available():
             model = model.cuda()
 
@@ -144,9 +144,8 @@ class Engine(object):
         for epoch in range(self.args.num_epoch):
             self.epoch = epoch
             # train for one epoch
-            train_loss,train_index,flops, params=self.train(train_loader, model, criterion, optimizer)
-            if epoch == 0:
-                print('flops:',flops,'params:',params)
+            train_loss,train_index=self.train(train_loader, model, criterion, optimizer,epoch)
+
             train_loss_all.append(train_loss)
             train_index_all.append(train_index)
             # evaluate on validation set
@@ -167,7 +166,7 @@ class Engine(object):
                 scheduler.step()
             print('>')
         plot_loss_index(train_loss_all, train_index_all, val_loss_all, val_index_all, self.results_dir,self.fold)
-        return self.best_score, self.best_epoch,flops, params
+        return self.best_score, self.best_epoch
 
     def random_mask_features(features, mask_prob):
         """
@@ -181,7 +180,7 @@ class Engine(object):
         masked_features = features * mask.float()
         return masked_features
 
-    def train(self, data_loader, model, criterion, optimizer):
+    def train(self, data_loader, model, criterion, optimizer,epoch):
 
         model.train()
         train_loss = 0.0
@@ -268,7 +267,7 @@ class Engine(object):
 
 
 
-            if batch_idx == len(data_loader) - 1:
+            if batch_idx == len(data_loader) - 1 and epoch==0:
                 input_data = {
                     "x_path": data_WSI,
                     "x_omic1": data_omic1,
@@ -281,11 +280,11 @@ class Engine(object):
 
                 # 将 inputs 参数改为字典传入 profile
                 flops = FlopCountAnalysis(model, input_data)
-                # print(f"FLOPs: {flops.total()}")
+                print(f"FLOPs: {flops.total()}")
 
                 # 使用 fvcore 计算参数量
                 params = parameter_count_table(model)
-                # print(f"参数量：\n{params}")
+                print(f"参数量：\n{params}")
 
                 # print(f"FLOPs: {flops}, Parameters: {params}")
 
@@ -302,7 +301,7 @@ class Engine(object):
         if self.writer:
             self.writer.add_scalar('train/loss', train_loss, self.epoch)
             self.writer.add_scalar('train/c_index', c_index, self.epoch)
-        return train_loss,c_index,flops.total(), params
+        return train_loss,c_index
 
     def validate(self, data_loader, model, criterion,modality):
 
