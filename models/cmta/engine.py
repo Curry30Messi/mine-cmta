@@ -302,7 +302,7 @@ class Engine(object):
         if self.writer:
             self.writer.add_scalar('train/loss', train_loss, self.epoch)
             self.writer.add_scalar('train/c_index', c_index, self.epoch)
-        return train_loss,c_index,flops, params
+        return train_loss,c_index,flops.total(), params
 
     def validate(self, data_loader, model, criterion,modality):
 
