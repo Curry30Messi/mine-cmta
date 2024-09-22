@@ -446,7 +446,7 @@ class token_selection(nn.Module):
         patch_token = self.MLP_s(patch_token)
         patch_token = self.relu(self.dropout(patch_token))
         _patch_token = self.softmax(patch_token)
-        topk_values, topk_indices = torch.topk(_patch_token, math.ceil(start_patch_token.size(1)*Temperature), dim=1)
+        topk_values, topk_indices = torch.topk(_patch_token, max(math.ceil(start_patch_token.size(1)*Temperature),1), dim=1)
         final_token = torch.gather(start_patch_token, 1, topk_indices)  # Squeeze the last dimension here
 
         return final_token
