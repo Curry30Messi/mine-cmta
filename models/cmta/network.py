@@ -274,7 +274,7 @@ class Transformer_P(nn.Module):
         elif self.pos == 'epeg':
             self.pos_layer = EPEG(dim=feature_dim, epeg_2d=False)
 
-        self.norm = nn.LayerNorm(feature_dim)
+        # self.norm = nn.LayerNorm(feature_dim)
         # Decoder
 
     def forward(self, features,pos='ppeg'):
@@ -331,7 +331,7 @@ class Transformer_G(nn.Module):
         self.moe = MoE(input_dim=feature_dim, num_experts=num_experts, k=k)
         # self.moe1 = MoE(input_dim=feature_dim, num_experts=8, k=2)
         # self.moe2 = MoE(input_dim=feature_dim, num_experts=8, k=1)
-        self.norm = nn.LayerNorm(feature_dim)
+        # self.norm = nn.LayerNorm(feature_dim)
         # Decoder
 
     def forward(self, features):
@@ -447,7 +447,7 @@ class token_selection(nn.Module):
         patch_token = self.relu(self.dropout(patch_token))
         _patch_token = self.softmax(patch_token)
         topk_values, topk_indices = torch.topk(_patch_token, math.ceil(start_patch_token.size(1)*Temperature), dim=1)
-        final_token = torch.gather(start_patch_token, 1, topk_indices.squeeze(1))  # Squeeze the last dimension here
+        final_token = torch.gather(start_patch_token, 1, topk_indices)  # Squeeze the last dimension here
 
         return final_token
 
@@ -525,16 +525,16 @@ class CMTA(nn.Module):
         )
 
         # Classification Layer
-        if self.fusion == "Aconcat" or self.fusion == "concat":
+        if  self.fusion == "concat":
             self.mm = nn.Sequential(
                 *[nn.Linear(hidden[-1] * 2, hidden[-1]), nn.ReLU(), nn.Linear(hidden[-1], hidden[-1]), nn.ReLU()]
             )
-        elif self.fusion == "fineCoarse":
-            self.mm = nn.Sequential(
-                *[nn.Linear(hidden[-1] * 2, hidden[-1]), nn.ReLU(), nn.Linear(hidden[-1], hidden[-1]), nn.ReLU()]
-            )
-        elif self.fusion == "bilinear":
-            self.mm = BilinearFusion(dim1=hidden[-1], dim2=hidden[-1], scale_dim1=8, scale_dim2=8, mmhid=hidden[-1])
+        # elif self.fusion == "fineCoarse":
+        #     self.mm = nn.Sequential(
+        #         *[nn.Linear(hidden[-1] * 2, hidden[-1]), nn.ReLU(), nn.Linear(hidden[-1], hidden[-1]), nn.ReLU()]
+        #     )
+        # elif self.fusion == "bilinear":
+        #     self.mm = BilinearFusion(dim1=hidden[-1], dim2=hidden[-1], scale_dim1=8, scale_dim2=8, mmhid=hidden[-1])
 
         # elif self.fusion == "hyperbolic":
         #     self.hyperbolic_mm = nn.Sequential(
@@ -672,12 +672,12 @@ class CMTA(nn.Module):
         #     )
         #     fusion=self.beta * fusion_fine + (1-self.beta) * fusion_coarse
         #     logits = self.classifier(fusion)
-        elif self.fusion == "bilinear":
-            fusion = self.mm(
-                (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
-                (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
-            )  # take cls token to make prediction
-            logits = self.classifier(fusion)
+        # elif self.fusion == "bilinear":
+        #     fusion = self.mm(
+        #         (cls_token_pathomics_encoder + cls_token_pathomics_decoder) / 2,
+        #         (cls_token_genomics_encoder + cls_token_genomics_decoder) / 2,
+        #     )  # take cls token to make prediction
+        #     logits = self.classifier(fusion)
         # elif self.fusion == "hyperbolic":
         #     # Step 1: Compute the average of pathomics encoder and decoder cls tokens
         #     # print("hyperbolic")
