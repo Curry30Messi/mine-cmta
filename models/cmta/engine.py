@@ -295,6 +295,8 @@ class Engine(object):
                 params = parameter_count_table(model)
                 print(f"参数量：\n{params}")
 
+
+
                 # print(f"FLOPs: {flops}, Parameters: {params}")
 
             # loss.backward()
@@ -302,9 +304,15 @@ class Engine(object):
             # optimizer.zero_grad()
 
         # calculate loss and error for epoch
+
+        if epoch ==0:
+            print("all_censorships",all_censorships)
+            print("all_event_times",all_event_times)
+            print("all_risk_scores",all_risk_scores)
         train_loss /= len(dataloader)
         c_index = concordance_index_censored((1 - all_censorships).astype(bool),
                                              all_event_times, all_risk_scores, tied_tol=1e-08)[0]
+        print()
         print('train loss: {:.4f}, c_index: {:.4f}'.format(train_loss, c_index))
 
         if self.writer:
