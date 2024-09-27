@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from lifelines import KaplanMeierFitter
 from hypll.optim import RiemannianAdam
 import matplotlib.pyplot as plt
-import datetimes
+import datetime
 from lifelines.statistics import logrank_test
 
 def get_time():
