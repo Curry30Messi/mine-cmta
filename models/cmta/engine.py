@@ -312,7 +312,7 @@ class Engine(object):
 
         # calculate loss and error for epoch
 
-        if epoch ==30:
+        if epoch ==29:
             print("all_censorships",len(all_censorships))
             print("all_event_times",len(all_event_times))
             print("all_risk_scores",len(all_risk_scores))
