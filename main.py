@@ -160,7 +160,7 @@ def main(args):
             )
         # start training
         score, epoch= engine.learning(
-            model, train_loader, val_loader, criterion, optimizer, scheduler
+            model, train_loader, val_loader, criterion, optimizer, scheduler,args.dataset
         )
         # save best score and epoch for each fold
         best_epoch.append(epoch)

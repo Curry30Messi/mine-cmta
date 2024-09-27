@@ -133,7 +133,7 @@ class Engine(object):
         self.best_epoch = 0
         self.filename_best = None
 
-    def learning(self, model, train_loader, val_loader, criterion, optimizer, scheduler):
+    def learning(self, model, train_loader, val_loader, criterion, optimizer, scheduler,dataset):
 
         if torch.cuda.is_available():
             model = model.cuda()
@@ -159,7 +159,7 @@ class Engine(object):
         for epoch in range(self.args.num_epoch):
             self.epoch = epoch
             # train for one epoch
-            train_loss,train_index=self.train(train_loader, model, criterion, optimizer,epoch)
+            train_loss,train_index=self.train(train_loader, model, criterion, optimizer,epoch,dataset)
 
             train_loss_all.append(train_loss)
             train_index_all.append(train_index)
@@ -195,7 +195,7 @@ class Engine(object):
         masked_features = features * mask.float()
         return masked_features
 
-    def train(self, data_loader, model, criterion, optimizer,epoch):
+    def train(self, data_loader, model, criterion, optimizer,epoch,dataset):
 
         model.train()
         train_loss = 0.0
@@ -312,7 +312,7 @@ class Engine(object):
 
         # calculate loss and error for epoch
 
-        if epoch ==0:
+        if epoch ==30:
             print("all_censorships",len(all_censorships))
             print("all_event_times",len(all_event_times))
             print("all_risk_scores",len(all_risk_scores))
@@ -344,12 +344,13 @@ class Engine(object):
             plt.xlabel('Time (months)')
             plt.ylabel('Overall Survival')
 
-            output_dir = "results_img"
+            dataset=dataset[4:]
+            output_dir = f'results_img/_{dataset}'
             os.makedirs(output_dir, exist_ok=True)
 
             output_path = os.path.join(output_dir, f"__{get_time()}__.png")
             plt.savefig(output_path)
-            plt.show()
+            # plt.show()
 
             print(f"img saved to: {output_path}")
 
