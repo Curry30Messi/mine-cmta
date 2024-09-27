@@ -6,10 +6,17 @@ from sksurv.metrics import concordance_index_censored
 from thop import profile, clever_format
 import torch.optim
 import torch.nn.parallel
-
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from lifelines import KaplanMeierFitter
 from hypll.optim import RiemannianAdam
 import matplotlib.pyplot as plt
+import datetimes
+from lifelines.statistics import logrank_test
 
+def get_time():
+    return datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 def plot_loss_index(train_loss_all, train_index_all, val_loss_all, val_index_all, results_dir,fold):
     """
     绘制四张分别表示train和val的loss和index变化的图像，以及一张综合图。
@@ -306,9 +313,49 @@ class Engine(object):
         # calculate loss and error for epoch
 
         if epoch ==0:
-            print("all_censorships",all_censorships)
-            print("all_event_times",all_event_times)
-            print("all_risk_scores",all_risk_scores)
+            print("all_censorships",len(all_censorships))
+            print("all_event_times",len(all_event_times))
+            print("all_risk_scores",len(all_risk_scores))
+            kmf = KaplanMeierFitter()
+            median_risk = np.median(all_risk_scores)
+
+
+            low_risk_group = all_risk_scores <= median_risk
+            high_risk_group = all_risk_scores > median_risk
+
+
+            kmf.fit(all_event_times[low_risk_group], all_censorships[low_risk_group], label="Low Risk")
+            ax = kmf.plot_survival_function()
+
+
+            kmf.fit(all_event_times[high_risk_group], all_censorships[high_risk_group], label="High Risk")
+            kmf.plot_survival_function(ax=ax)
+
+            # 使用log-rank test计算p-value
+            results = logrank_test(all_event_times[low_risk_group], all_event_times[high_risk_group],
+                                   event_observed_A=all_censorships[low_risk_group],
+                                   event_observed_B=all_censorships[high_risk_group])
+
+            p_value_text = f'p-value: {results.p_value:.4f}'
+            plt.title('Kaplan-Meier Survival Curves for Low and High Risk Groups')
+            plt.text(0.6, 0.2, p_value_text, transform=ax.transAxes, fontsize=12,
+                     bbox=dict(facecolor='white', alpha=0.5))
+
+            plt.xlabel('Time (months)')
+            plt.ylabel('Overall Survival')
+
+            output_dir = "results_img"
+            os.makedirs(output_dir, exist_ok=True)
+
+            output_path = os.path.join(output_dir, f"__{get_time()}__.png")
+            plt.savefig(output_path)
+            plt.show()
+
+            print(f"img saved to: {output_path}")
+
+
+
+
         train_loss /= len(dataloader)
         c_index = concordance_index_censored((1 - all_censorships).astype(bool),
                                              all_event_times, all_risk_scores, tied_tol=1e-08)[0]
