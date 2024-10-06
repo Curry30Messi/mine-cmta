@@ -149,7 +149,7 @@ class Engine(object):
                 print("=> no checkpoint found at '{}'".format(self.args.resume))
 
         if self.args.evaluate:
-            self.validate(val_loader, model, criterion)
+            self.validate(val_loader, model, criterion, self.args.modality)
             return
         train_loss_all=[]
         train_index_all=[]
