@@ -311,41 +311,48 @@ class Engine(object):
             # optimizer.zero_grad()
 
         # calculate loss and error for epoch
+        if epoch == 0:
+            plt.clf()
+            # 打印数据长度
+            print("all_censorships", len(all_censorships))
+            print("all_event_times", len(all_event_times))
+            print("all_risk_scores", len(all_risk_scores))
 
-        if epoch ==29:
-            print("all_censorships",len(all_censorships))
-            print("all_event_times",len(all_event_times))
-            print("all_risk_scores",len(all_risk_scores))
+            # 复制数据以避免修改原始数据
+            all_censorships_temp = all_censorships.copy()
+            all_event_times_temp = all_event_times.copy()
+            all_risk_scores_temp = all_risk_scores.copy()
+
             kmf = KaplanMeierFitter()
-            median_risk = np.median(all_risk_scores)
+            median_risk = np.median(all_risk_scores_temp)
 
+            low_risk_group = all_risk_scores_temp <= median_risk
+            high_risk_group = all_risk_scores_temp > median_risk
 
-            low_risk_group = all_risk_scores <= median_risk
-            high_risk_group = all_risk_scores > median_risk
-
-
-            kmf.fit(all_event_times[low_risk_group], all_censorships[low_risk_group], label="Low Risk")
+            # 绘制低风险组生存曲线
+            kmf.fit(all_event_times_temp[low_risk_group], all_censorships_temp[low_risk_group], label="Low Risk")
             ax = kmf.plot_survival_function()
 
-
-            kmf.fit(all_event_times[high_risk_group], all_censorships[high_risk_group], label="High Risk")
+            # 绘制高风险组生存曲线
+            kmf.fit(all_event_times_temp[high_risk_group], all_censorships_temp[high_risk_group], label="High Risk")
             kmf.plot_survival_function(ax=ax)
 
             # 使用log-rank test计算p-value
-            results = logrank_test(all_event_times[low_risk_group], all_event_times[high_risk_group],
-                                   event_observed_A=all_censorships[low_risk_group],
-                                   event_observed_B=all_censorships[high_risk_group])
+            results = logrank_test(all_event_times_temp[low_risk_group], all_event_times_temp[high_risk_group],
+                                   event_observed_A=all_censorships_temp[low_risk_group],
+                                   event_observed_B=all_censorships_temp[high_risk_group])
 
-            p_value_text = f'p-value: {results.p_value:.4f}'
-            plt.title('Kaplan-Meier Survival Curves for Low and High Risk Groups')
+            p_value_text = f'p-value: {results.p_value:.1e}'
+            # plt.title('Kaplan-Meier Survival Curves for Low and High Risk Groups')
             plt.text(0.6, 0.2, p_value_text, transform=ax.transAxes, fontsize=12,
                      bbox=dict(facecolor='white', alpha=0.5))
 
             plt.xlabel('Time (months)')
             plt.ylabel('Overall Survival')
 
-            dataset=dataset[4:]
-            output_dir = f'results_img/_{dataset}'
+            # 保存图像
+            dataset = dataset[4:]
+            output_dir = f'results_img/_{dataset}/_{self.fold}'
             os.makedirs(output_dir, exist_ok=True)
 
             output_path = os.path.join(output_dir, f"__{get_time()}__.png")
@@ -353,7 +360,6 @@ class Engine(object):
             # plt.show()
 
             print(f"img saved to: {output_path}")
-
 
 
 
