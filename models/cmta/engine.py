@@ -311,7 +311,7 @@ class Engine(object):
             # optimizer.zero_grad()
 
         # calculate loss and error for epoch
-        if epoch == 0:
+        if epoch == self.epoch-2:
             plt.clf()
             # 打印数据长度
             print("all_censorships", len(all_censorships))
