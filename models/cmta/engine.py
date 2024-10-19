@@ -352,10 +352,10 @@ class Engine(object):
 
             # 保存图像
             dataset = dataset[4:]
-            output_dir = f'results_img/_{dataset}/_{self.fold}'
+            output_dir = f'results_img/_{dataset}/_{get_time()}'
             os.makedirs(output_dir, exist_ok=True)
 
-            output_path = os.path.join(output_dir, f"__{get_time()}__.png")
+            output_path = os.path.join(output_dir, f"__{self.fold}__.png")
             plt.savefig(output_path)
             # plt.show()
 
