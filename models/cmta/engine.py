@@ -311,7 +311,7 @@ class Engine(object):
             # optimizer.zero_grad()
 
         # calculate loss and error for epoch
-        if epoch == self.epoch-2:
+        if epoch == self.args.num_epoch-2:
             plt.clf()
             # 打印数据长度
             print("all_censorships", len(all_censorships))
@@ -352,7 +352,7 @@ class Engine(object):
 
             # 保存图像
             dataset = dataset[4:]
-            output_dir = f'results_img/_{dataset}/_{get_time()}'
+            output_dir = f'results_img/_{dataset}/_{get_time()}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}'
             os.makedirs(output_dir, exist_ok=True)
 
             output_path = os.path.join(output_dir, f"__{self.fold}__.png")
