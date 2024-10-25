@@ -166,7 +166,7 @@ class Engine(object):
             train_loss_all.append(train_loss)
             train_index_all.append(train_index)
             # evaluate on validation set
-            c_index,val_loss,val_index = self.validate(val_loader, model, criterion, self.args.modality)
+            c_index,val_loss,val_index = self.validate(val_loader, model, criterion, self.args.modality,epoch,dataset)
             val_loss_all.append(val_loss)
             val_index_all.append(val_index)
             # remember best c-index and save checkpoint
@@ -359,7 +359,7 @@ class Engine(object):
             output_dir = f'results_img/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}'
             os.makedirs(output_dir, exist_ok=True)
 
-            output_path = os.path.join(output_dir, f"__{self.fold}__.png")
+            output_path = os.path.join(output_dir, "train",f"__{self.fold}__.png")
             plt.savefig(output_path)
             # plt.show()
 
@@ -378,7 +378,7 @@ class Engine(object):
             self.writer.add_scalar('train/c_index', c_index, self.epoch)
         return train_loss,c_index
 
-    def validate(self, data_loader, model, criterion,modality):
+    def validate(self, data_loader, model, criterion,modality,epoch,dataset):
 
         model.eval()
         val_loss = 0.0
@@ -435,7 +435,57 @@ class Engine(object):
             all_event_times[batch_idx] = event_time
             val_loss += loss.item()
 
-        val_loss /= len(dataloader)
+        if epoch == self.args.num_epoch - 2:
+            plt.clf()
+            # 打印数据长度
+            print("all_censorships", len(all_censorships))
+            print("all_event_times", len(all_event_times))
+            print("all_risk_scores", len(all_risk_scores))
+
+            # 复制数据以避免修改原始数据
+            all_censorships_temp = all_censorships.copy()
+            all_event_times_temp = all_event_times.copy()
+            all_risk_scores_temp = all_risk_scores.copy()
+
+            kmf = KaplanMeierFitter()
+            median_risk = np.median(all_risk_scores_temp)
+
+            low_risk_group = all_risk_scores_temp <= median_risk
+            high_risk_group = all_risk_scores_temp > median_risk
+
+            # 绘制低风险组生存曲线
+            kmf.fit(all_event_times_temp[low_risk_group], all_censorships_temp[low_risk_group], label="Low Risk")
+            ax = kmf.plot_survival_function()
+
+            # 绘制高风险组生存曲线
+            kmf.fit(all_event_times_temp[high_risk_group], all_censorships_temp[high_risk_group], label="High Risk")
+            kmf.plot_survival_function(ax=ax)
+
+            # 使用log-rank test计算p-value
+            results = logrank_test(all_event_times_temp[low_risk_group], all_event_times_temp[high_risk_group],
+                                   event_observed_A=all_censorships_temp[low_risk_group],
+                                   event_observed_B=all_censorships_temp[high_risk_group])
+
+            p_value_text = f'p-value: {results.p_value:.1e}'
+            # plt.title('Kaplan-Meier Survival Curves for Low and High Risk Groups')
+            plt.text(0.6, 0.2, p_value_text, transform=ax.transAxes, fontsize=12,
+                     bbox=dict(facecolor='white', alpha=0.5))
+
+            plt.xlabel('Time (months)')
+            plt.ylabel('Overall Survival')
+
+            # 保存图像
+            dataset = dataset[4:]
+            output_dir = f'results_img/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}'
+            os.makedirs(output_dir, exist_ok=True)
+
+            output_path = os.path.join(output_dir, "test", f"__{self.fold}__.png")
+            plt.savefig(output_path)
+            # plt.show()
+
+            print(f"img saved to: {output_path}")
+
+            val_loss /= len(dataloader)
         c_index = concordance_index_censored((1 - all_censorships).astype(bool),
                                              all_event_times, all_risk_scores, tied_tol=1e-08)[0]
         print('test loss: {:.4f}, c_index: {:.4f}'.format(val_loss, c_index))
