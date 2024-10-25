@@ -536,6 +536,157 @@ from torch.autograd import Variable
 from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_normal_
 
+import torch
+import torch.nn as nn
+from transformers import ViTModel
+
+
+class FixedMLP(nn.Module):
+    def __init__(self, mlp_params):
+        super(FixedMLP, self).__init__()
+        self.mlp = nn.Sequential(
+            nn.Linear(mlp_params['input_dim'], mlp_params['hidden_dim']),
+            nn.ReLU(),
+            nn.Linear(mlp_params['hidden_dim'], mlp_params['output_dim'])
+        )
+        self._initialize_weights(mlp_params['weights'])
+
+    def _initialize_weights(self, pretrained_weights):
+        with torch.no_grad():
+            for i, layer in enumerate(self.mlp):
+                if isinstance(layer, nn.Linear):
+                    layer.weight.copy_(pretrained_weights[i]['weight'])
+                    layer.bias.copy_(pretrained_weights[i]['bias'])
+
+    def forward(self, x):
+        return self.mlp(x)
+
+
+class CNNExpert(nn.Module):
+    def __init__(self, input_dim, hidden_dim):
+        super(CNNExpert, self).__init__()
+        self.conv1 = nn.Conv2d(input_dim, hidden_dim, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(hidden_dim)
+        self.relu = nn.ReLU()
+        self.conv2 = nn.Conv2d(hidden_dim, input_dim, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(input_dim)
+
+    def forward(self, x):
+        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.bn2(self.conv2(x))
+        return x
+
+# SNNExpert 基于 SNN_Block 的多层感知机模型
+class SNNExpert(nn.Module):
+    def __init__(self, input_dim, hidden_dim, dropout=0.25):
+        super(SNNExpert, self).__init__()
+        # 使用 SNN_Block 进行特征处理
+        self.snn_block1 = SNN_Block(input_dim, hidden_dim, dropout)
+        self.snn_block2 = SNN_Block(hidden_dim, input_dim, dropout)
+
+    def forward(self, x):
+        # 通过第一个 SNN_Block
+        x = self.snn_block1(x)
+        # 通过第二个 SNN_Block
+        x = self.snn_block2(x)
+        return x
+class PREE(nn.Module):
+    def __init__(self, mlp_params, expert_dims, num_experts):
+        super(PREE, self).__init__()
+        # Initialize the fixed MLP with vit encoder's MLP parameters
+        self.fixed_mlp = FixedMLP(mlp_params)
+
+        # Initialize experts
+        self.experts_p = nn.ModuleList([CNNExpert(expert_dims['input_dim'], expert_dims['hidden_dim']) for _ in range(num_experts)])
+        self.experts_g = nn.ModuleList([SNNExpert(expert_dims['input_dim'], expert_dims['hidden_dim']) for _ in range(num_experts)])
+        # Gated mechanism (can be customized)
+        self.gate = nn.Sigmoid()
+
+    def forward(self, x, gated_input):
+        out = self.fixed_mlp(x)
+        for expert in self.experts:
+            gated_expert_out = self.gate(gated_input) * expert(out)
+            out = out + gated_expert_out  # Residual connection
+        return out
+
+# Load vit encoder and extract MLP parameters
+vit_model = ViTModel.from_pretrained('google/vit-base-patch16-224')
+mlp_params = {
+    'input_dim': vit_model.encoder.layer[0].mlp.fc1.in_features,
+    'hidden_dim': vit_model.encoder.layer[0].mlp.fc1.out_features,
+    'output_dim': vit_model.encoder.layer[0].mlp.fc2.out_features,
+    'weights': [
+        {'weight': vit_model.encoder.layer[0].mlp.fc1.weight, 'bias': vit_model.encoder.layer[0].mlp.fc1.bias},
+        {'weight': vit_model.encoder.layer[0].mlp.fc2.weight, 'bias': vit_model.encoder.layer[0].mlp.fc2.bias}
+    ]
+}
+
+# Expert layer dimensions
+expert_dims = {'input_dim': mlp_params['output_dim'], 'hidden_dim': 256}
+
+
+class RouterAlpha(nn.Module):
+    def __init__(self, alpha, k):
+        super(RouterAlpha, self).__init__()
+        self.alpha = alpha
+        self.k = k
+
+    def forward(self, tokens):
+        top_alpha_k = int(self.alpha * self.k)
+        # Select top αk tokens based on some criteria, e.g., magnitude of values
+        top_values, top_indices = torch.topk(tokens, top_alpha_k, dim=1)
+        return top_values, top_indices
+
+
+class RouterK(nn.Module):
+    def __init__(self, alpha, k):
+        super(RouterK, self).__init__()
+        self.alpha = alpha
+        self.k = k
+
+    def forward(self, tokens):
+        top_k = self.k
+        top_1_minus_alpha_k = int((1 - self.alpha) * self.k)
+        # Select top (1-α)k tokens and drop others
+        _, indices = torch.topk(tokens, top_k, dim=1)
+        normally_dropped_tokens = tokens[:, top_1_minus_alpha_k:]
+        avg_pooled = torch.mean(normally_dropped_tokens, dim=1, keepdim=True)
+        return avg_pooled
+
+
+class ATSA(nn.Module):
+    def __init__(self, input_dim, alpha, k, hidden_dim):
+        super(ATSA, self).__init__()
+        self.router_alpha = RouterAlpha(alpha, k)
+        self.router_k = RouterK(alpha, k)
+        self.mlp1 = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU()
+        )
+        self.softmax = nn.Softmax(dim=-1)
+        self.concat_layer = nn.Linear(2 * hidden_dim, hidden_dim)
+        self.mlp2 = nn.Sequential(
+            nn.Linear(hidden_dim, input_dim),
+            nn.ReLU()
+        )
+
+    def forward(self, tokens):
+        # Route through Router-α
+        top_alpha_tokens, _ = self.router_alpha(tokens)
+
+        # Route through Router-k
+        avg_pooled_tokens = self.router_k(tokens)
+
+        # MLP and Softmax
+        mlp_output_alpha = self.mlp1(top_alpha_tokens)
+        softmax_output = self.softmax(mlp_output_alpha)
+
+        # Concat and final MLP
+        concat_output = torch.cat((softmax_output, avg_pooled_tokens), dim=-1)
+        concat_processed = self.concat_layer(concat_output)
+
+        final_output = self.mlp2(concat_processed)
+        return final_output
 
 
 class LMF(nn.Module):
