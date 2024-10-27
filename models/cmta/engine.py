@@ -356,10 +356,9 @@ class Engine(object):
             dataset = dataset[4:]
             if self.fold==0:
                 self.time=get_time()
-            output_dir = f'results_img/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}'
+            output_dir = f'results_img/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}/train'
             os.makedirs(output_dir, exist_ok=True)
-
-            output_path = os.path.join(output_dir, "train",f"__{self.fold}__.png")
+            output_path = os.path.join(output_dir, f"__{self.fold}__.png")
             plt.savefig(output_path)
             # plt.show()
 
@@ -476,10 +475,9 @@ class Engine(object):
 
             # 保存图像
             dataset = dataset[4:]
-            output_dir = f'results_img/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}'
+            output_dir = f'results_img/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}/test'
             os.makedirs(output_dir, exist_ok=True)
-
-            output_path = os.path.join(output_dir, "test", f"__{self.fold}__.png")
+            output_path = os.path.join(output_dir,  f"__{self.fold}__.png")
             plt.savefig(output_path)
             # plt.show()
 
