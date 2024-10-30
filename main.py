@@ -42,7 +42,8 @@ class FlushFile:
     def flush(self):
         self.f.flush()
 
-
+def get_time():
+    return datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 def main(args):
     # global flops, params
     start_time = datetime.now()
@@ -73,6 +74,7 @@ def main(args):
     print("git info: ",commit_hash)
     print("=======================================")
 
+    temp_time=get_time()
     # flops, params=0.0,0.0
 
     # start 5-fold CV evaluation.
@@ -160,7 +162,7 @@ def main(args):
             )
         # start training
         score, epoch= engine.learning(
-            model, train_loader, val_loader, criterion, optimizer, scheduler,args.dataset
+            temp_time,model, train_loader, val_loader, criterion, optimizer, scheduler,args.dataset
         )
         # save best score and epoch for each fold
         best_epoch.append(epoch)

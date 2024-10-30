@@ -135,7 +135,9 @@ class Engine(object):
         self.time = None
 
 
-    def learning(self, model, train_loader, val_loader, criterion, optimizer, scheduler,dataset):
+    def learning(self, temp_time,model, train_loader, val_loader, criterion, optimizer, scheduler,dataset):
+
+        self.time = temp_time
 
         if torch.cuda.is_available():
             model = model.cuda()
@@ -354,8 +356,7 @@ class Engine(object):
 
             # 保存图像
             dataset = dataset[4:]
-            if self.fold==0:
-                self.time=get_time()
+
             output_dir = f'results_img/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}/train'
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, f"__{self.fold}__.png")
