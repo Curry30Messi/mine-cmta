@@ -43,7 +43,7 @@ class FlushFile:
         self.f.flush()
 
 def get_time():
-    return datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 def main(args):
     # global flops, params
     start_time = datetime.now()
@@ -136,6 +136,28 @@ def main(args):
             engine = Engine(args, results_dir, fold)
         elif args.model == "LMF":
             from models.cmta.LMF import CMTA
+            from models.cmta.engine import Engine
+
+            print(train_dataset.omic_sizes)
+            model_dict = {
+                "omic_sizes": train_dataset.omic_sizes,
+                "n_classes": 4,
+                "fusion": args.fusion,
+                "model_size": args.model_size,
+                "alpha": args.F_alpha,
+                "beta": args.F_beta,
+                "tokenS": args.tokenS,
+                "GT": args.GT,
+                "PT": args.PT,
+                "HRate": args.HRate,
+            }
+            model = CMTA(**model_dict)
+            criterion = define_loss(args)
+            optimizer = define_optimizer(args, model)
+            scheduler = define_scheduler(args, optimizer)
+            engine = Engine(args, results_dir, fold)
+        elif args.model == "womoe":
+            from models.cmta.nework_womoe import CMTA
             from models.cmta.engine import Engine
 
             print(train_dataset.omic_sizes)
