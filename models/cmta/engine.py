@@ -347,12 +347,14 @@ class Engine(object):
                                    event_observed_B=all_censorships_temp[high_risk_group])
 
             p_value_text = f'p-value: {results.p_value:.1e}'
-            # plt.title('Kaplan-Meier Survival Curves for Low and High Risk Groups')
-            plt.text(0.6, 0.2, p_value_text, transform=ax.transAxes, fontsize=12,
+            plt.text(0.6, 0.2, p_value_text, transform=ax.transAxes, fontsize=16,  # 增大 p-value 字体
                      bbox=dict(facecolor='white', alpha=0.5))
 
-            plt.xlabel('Time (months)')
-            plt.ylabel('Overall Survival')
+            plt.xlabel('Time (months)', fontsize=14)  # 增大 x 轴标签字体
+            plt.ylabel('Overall Survival', fontsize=14)  # 增大 y 轴标签字体
+
+            # 增加图例并设置字体大小
+            plt.legend(fontsize=12)  # 设置图例字体大小
 
             # 保存图像
             dataset = dataset[4:]
@@ -467,13 +469,14 @@ class Engine(object):
                                    event_observed_B=all_censorships_temp[high_risk_group])
 
             p_value_text = f'p-value: {results.p_value:.1e}'
-            # plt.title('Kaplan-Meier Survival Curves for Low and High Risk Groups')
-            plt.text(0.6, 0.2, p_value_text, transform=ax.transAxes, fontsize=12,
+            plt.text(0.6, 0.2, p_value_text, transform=ax.transAxes, fontsize=16,  # 增大 p-value 字体
                      bbox=dict(facecolor='white', alpha=0.5))
 
-            plt.xlabel('Time (months)')
-            plt.ylabel('Overall Survival')
+            plt.xlabel('Time (months)', fontsize=14)  # 增大 x 轴标签字体
+            plt.ylabel('Overall Survival', fontsize=14)  # 增大 y 轴标签字体
 
+            # 增加图例并设置字体大小
+            plt.legend(fontsize=12)  # 设置图例字体大小
             # 保存图像
             dataset = dataset[4:]
             output_dir = f'results_img/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}/test'
