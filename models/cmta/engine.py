@@ -360,7 +360,7 @@ class Engine(object):
             output_dir = f'results_img/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}/train'
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, f"__{self.fold}__.png")
-            plt.savefig(output_path)
+            plt.savefig(output_path, bbox_inches='tight', pad_inches=0.1)
             # plt.show()
 
             print(f"img saved to: {output_path}")
@@ -479,7 +479,7 @@ class Engine(object):
             output_dir = f'results_img/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}/test'
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir,  f"__{self.fold}__.png")
-            plt.savefig(output_path)
+            plt.savefig(output_path, bbox_inches='tight', pad_inches=0.1)
             # plt.show()
 
             print(f"img saved to: {output_path}")
