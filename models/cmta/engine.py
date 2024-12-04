@@ -347,7 +347,7 @@ class Engine(object):
                                    event_observed_B=all_censorships_temp[high_risk_group])
 
             p_value_text = f'p-value: {results.p_value:.1e}'
-            plt.text(0.6, 0.2, p_value_text, transform=ax.transAxes, fontsize=16,  # 增大 p-value 字体
+            plt.text(0.6, 0.2, p_value_text, transform=ax.transAxes, fontsize=20,  # 增大 p-value 字体
                      bbox=dict(facecolor='white', alpha=0.5))
 
             plt.xlabel('Time (months)', fontsize=14)  # 增大 x 轴标签字体
