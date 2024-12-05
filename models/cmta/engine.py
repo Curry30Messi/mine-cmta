@@ -347,7 +347,7 @@ class Engine(object):
                                    event_observed_B=all_censorships_temp[high_risk_group])
 
             p_value_text = f'p-value: {results.p_value:.1e}'
-            plt.text(0.6, 0.2, p_value_text, transform=ax.transAxes, fontsize=20,  # 增大 p-value 字体
+            plt.text(0.4, 0.2, p_value_text, transform=ax.transAxes, fontsize=20,  # 增大 p-value 字体
                      bbox=dict(facecolor='white', alpha=0.5))
 
             plt.xlabel('Time (months)', fontsize=14)  # 增大 x 轴标签字体
@@ -359,7 +359,7 @@ class Engine(object):
             # 保存图像
             dataset = dataset[4:]
 
-            output_dir = f'results_img_new/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}/train'
+            output_dir = f'results_img_new1/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}/train'
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, f"__{self.fold}__.png")
             plt.savefig(output_path, bbox_inches='tight', pad_inches=0.1)
