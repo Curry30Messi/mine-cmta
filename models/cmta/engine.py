@@ -228,6 +228,14 @@ class Engine(object):
 
             # survival loss + sim loss + sim loss
             sur_loss = criterion[0](hazards=hazards, S=S, Y=label, c=c)
+
+            print("Hazards:\n", hazards)
+            if hasattr(hazards, 'shape'):
+                print("Hazards Shape:", hazards.shape)
+            print("Survival Probabilities (S):\n", S)
+            print("Labels (Y):\n", label)
+            print("Censoring (c):\n", c)
+
             sim_loss_P = criterion[1](P.detach(), P_hat)
             sim_loss_G = criterion[1](G.detach(), G_hat)
             loss = sur_loss + self.args.alpha * (sim_loss_P + sim_loss_G)

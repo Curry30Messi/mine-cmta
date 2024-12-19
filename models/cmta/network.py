@@ -378,54 +378,54 @@ import torch.nn as nn
 import math
 
 
-# class token_selection(nn.Module):
-#     def __init__(self):
-#         super(token_selection, self).__init__()
-#         self.MLP_f = nn.Linear(256, 128)
-#         self.MLP_s = nn.Linear(256, 256)
-#         self.softmax = nn.Softmax(dim=1)
-#         self.relu = nn.ReLU()
-#         self.dropout = nn.Dropout(0.25)
-#
-#         # 新增router模块，用于动态生成Temperature
-#         self.router = nn.Sequential(
-#             nn.Linear(256, 128),  # 使用cls_token生成
-#             nn.ReLU(),
-#             nn.Linear(128, 1),  # 输出为1维，即选择比例
-#             nn.Sigmoid()  # 将输出限制在(0, 1)之间
-#         )
-#
-#     def forward(self, start_patch_token, cls_token):
-#         # 通过router生成动态的选择比例
-#         Temperature = self.router(cls_token)  # 生成比例，形状为(batch_size, 1)
-#         Temperature = Temperature.squeeze()  # 将其变为(batch_size)的一维向量
-#
-#         # 处理patch token
-#         half_token_patch = self.MLP_f(start_patch_token)
-#         half_token_patch = self.relu(self.dropout(half_token_patch))
-#
-#         # 处理cls token
-#         half_token_cls = self.MLP_f(cls_token)
-#         half_token_cls = half_token_cls.unsqueeze(1)
-#         half_token_cls = half_token_cls.repeat(1, start_patch_token.size(1), 1)
-#
-#         # 拼接patch和cls token
-#         patch_token = torch.cat([half_token_cls, half_token_patch], dim=2)
-#         patch_token = self.MLP_s(patch_token)
-#         patch_token = self.relu(self.dropout(patch_token))
-#
-#         # 计算概率分布
-#         _patch_token = self.softmax(patch_token)
-#
-#         # 使用生成的Temperature选择topk token
-#         topk_values, topk_indices = torch.topk(_patch_token, torch.ceil(start_patch_token.size(1) * Temperature).int(),
-#                                                dim=1)
-#
-#         # 选出最终的token
-#         final_token = torch.gather(start_patch_token, 1, topk_indices.squeeze(1))  # Squeeze最后的维度
-#
-#         return final_token
-#
+class token_selection(nn.Module):
+    def __init__(self):
+        super(token_selection, self).__init__()
+        self.MLP_f = nn.Linear(256, 128)
+        self.MLP_s = nn.Linear(256, 256)
+        self.softmax = nn.Softmax(dim=1)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.25)
+
+        # 新增router模块，用于动态生成Temperature
+        self.router = nn.Sequential(
+            nn.Linear(256, 128),  # 使用cls_token生成
+            nn.ReLU(),
+            nn.Linear(128, 1),  # 输出为1维，即选择比例
+            nn.Sigmoid()  # 将输出限制在(0, 1)之间
+        )
+
+    def forward(self, start_patch_token, cls_token):
+        # 通过router生成动态的选择比例
+        Temperature = self.router(cls_token)  # 生成比例，形状为(batch_size, 1)
+        Temperature = Temperature.squeeze()  # 将其变为(batch_size)的一维向量
+
+        # 处理patch token
+        half_token_patch = self.MLP_f(start_patch_token)
+        half_token_patch = self.relu(self.dropout(half_token_patch))
+
+        # 处理cls token
+        half_token_cls = self.MLP_f(cls_token)
+        half_token_cls = half_token_cls.unsqueeze(1)
+        half_token_cls = half_token_cls.repeat(1, start_patch_token.size(1), 1)
+
+        # 拼接patch和cls token
+        patch_token = torch.cat([half_token_cls, half_token_patch], dim=2)
+        patch_token = self.MLP_s(patch_token)
+        patch_token = self.relu(self.dropout(patch_token))
+
+        # 计算概率分布
+        _patch_token = self.softmax(patch_token)
+
+        # 使用生成的Temperature选择topk token
+        topk_values, topk_indices = torch.topk(_patch_token, torch.ceil(start_patch_token.size(1) * Temperature).int(),
+                                               dim=1)
+
+        # 选出最终的token
+        final_token = torch.gather(start_patch_token, 1, topk_indices.squeeze(1))  # Squeeze最后的维度
+
+        return final_token
+
 
 class token_selection(nn.Module):
     def __init__(self):
@@ -578,10 +578,10 @@ class CMTA(nn.Module):
         cls_token_genomics_encoder, patch_token_genomics_encoder ,Nloss1= self.genomics_encoder(
             genomics_features)  # cls token + patch tokens
 
-        # print("cls_token_pathomics_encoder.shape: ",cls_token_pathomics_encoder.shape)
-        # print("cls_token_genomics_encoder.shape: ",cls_token_genomics_encoder.shape)
-        # print("patch_token_pathomics_encoder.shape: ",patch_token_pathomics_encoder.shape)
-        # print("patch_token_genomics_encoder.shape: ",patch_token_genomics_encoder.shape)
+        print("cls_token_pathomics_encoder.shape: ",cls_token_pathomics_encoder.shape)
+        print("cls_token_genomics_encoder.shape: ",cls_token_genomics_encoder.shape)
+        print("patch_token_pathomics_encoder.shape: ",patch_token_pathomics_encoder.shape)
+        print("patch_token_genomics_encoder.shape: ",patch_token_genomics_encoder.shape)
         # cross-omics attention
 
         #=============== token selection;
@@ -598,8 +598,8 @@ class CMTA(nn.Module):
 
         # =============== token selection;
         # print("===========")
-        # print("patch_token_pathomics_encoder.shape: ", patch_token_pathomics_encoder.shape)
-        # print("patch_token_genomics_encoder.shape: ", patch_token_genomics_encoder.shape)
+        print("patch_token_pathomics_encoder.shape: ", patch_token_pathomics_encoder.shape)
+        print("patch_token_genomics_encoder.shape: ", patch_token_genomics_encoder.shape)
         # print("===========")
         pathomics_in_genomics, Att = self.P_in_G_Att(
             patch_token_pathomics_encoder.transpose(1, 0),
@@ -612,8 +612,8 @@ class CMTA(nn.Module):
             patch_token_pathomics_encoder.transpose(1, 0),
         )  # ([7, 1, 256])
         # decoder
-        # print(" pathomics_in_genomics: " ,pathomics_in_genomics.shape)
-        # print(" genomics_in_pathomics: " ,genomics_in_pathomics.shape)
+        print(" pathomics_in_genomics: " ,pathomics_in_genomics.shape)
+        print(" genomics_in_pathomics: " ,genomics_in_pathomics.shape)
 
 
         # pathomics decoder
@@ -625,10 +625,10 @@ class CMTA(nn.Module):
         # cls_token_pathomics_decoder, _ = self.genomics_decoder(patch_token_pathomics_encoder )
         # cls_token_genomics_decoder, _ = self.genomics_decoder(patch_token_genomics_encoder)
         # fusion
-        # print("cls_token_pathomics_encoder", cls_token_pathomics_encoder.shape)
-        # print("cls_token_genomics_encoder", cls_token_genomics_encoder.shape)
-        # print("cls_token_pathomics_decoder", cls_token_pathomics_decoder.shape)
-        # print("cls_token_genomics_decoder", cls_token_genomics_decoder.shape)
+        print("cls_token_pathomics_encoder", cls_token_pathomics_encoder.shape)
+        print("cls_token_genomics_encoder", cls_token_genomics_encoder.shape)
+        print("cls_token_pathomics_decoder", cls_token_pathomics_decoder.shape)
+        print("cls_token_genomics_decoder", cls_token_genomics_decoder.shape)
         if self.fusion == "concat":
             fusion = self.mm(
                 torch.concat(
@@ -750,7 +750,8 @@ class CMTA(nn.Module):
             )
             output_final=output_concat+output*self.Rate
             logits = self.classifier(output_final)
-            # print(output.shape)  # should print torch.Size([1, 256])
+            print("output: ",output.shape)  # should print torch.Size([1, 256])
+            print("logits: ",logits.shape)
 
         else:
             raise NotImplementedError("Fusion [{}] is not implemented".format(self.fusion))
@@ -760,7 +761,10 @@ class CMTA(nn.Module):
         # predict
           # [1, n_classes]
         hazards = torch.sigmoid(logits)
+        print("logits: ",logits.shape)
         S = torch.cumprod(1 - hazards, dim=1)
+        print("S: ",S)
+
         return hazards, S, cls_token_pathomics_encoder, cls_token_pathomics_decoder, cls_token_genomics_encoder, cls_token_genomics_decoder,Nloss2+Nloss1
 
 
