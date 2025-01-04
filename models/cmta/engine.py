@@ -338,8 +338,8 @@ class Engine(object):
             kmf = KaplanMeierFitter()
             median_risk = np.median(all_risk_scores_temp)
 
-            low_risk_group = all_risk_scores_temp <= median_risk
-            high_risk_group = all_risk_scores_temp > median_risk
+            low_risk_group = all_risk_scores_temp >= median_risk
+            high_risk_group = all_risk_scores_temp < median_risk
 
             # 绘制低风险组生存曲线
             kmf.fit(all_event_times_temp[low_risk_group], all_censorships_temp[low_risk_group], label="Low Risk")
@@ -460,8 +460,8 @@ class Engine(object):
             kmf = KaplanMeierFitter()
             median_risk = np.median(all_risk_scores_temp)
 
-            low_risk_group = all_risk_scores_temp <= median_risk
-            high_risk_group = all_risk_scores_temp > median_risk
+            low_risk_group = all_risk_scores_temp >= median_risk
+            high_risk_group = all_risk_scores_temp < median_risk
 
             # 绘制低风险组生存曲线
             kmf.fit(all_event_times_temp[low_risk_group], all_censorships_temp[low_risk_group], label="Low Risk")
