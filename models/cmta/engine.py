@@ -163,20 +163,21 @@ class Engine(object):
                 raise Exception(f"Failed to load or download pretrained model: {e}")
         print(self.classifier_model.config)   
         print(self.classifier_model)    
+        self.projector=nn.Linear(512, 768)
         self.classification_head = nn.Sequential(
-                nn.Linear(self.classifier_model.config.projection_dim, 512),
+                nn.Linear(512, 512),
                 nn.ReLU(),
                 nn.Dropout(0.1),
-                nn.Linear(512, 2)  # 二分类
-            )
+                nn.Linear(512, 1),  # 二分类
+                nn.Sigmoid())
             
         # 冻结部分预训练模型参数
         for param in self.classifier_model.parameters():
             param.requires_grad = False
         # 只微调最后几层
-        for param in self.classifier_model.encoder.layer[-2:].parameters():
+        for param in self.classifier_model.text_model.encoder.layers[-2:].parameters():
             param.requires_grad = True
-            
+
         if torch.cuda.is_available():
             self.classifier_model = self.classifier_model.cuda()
             self.classification_head = self.classification_head.cuda()
@@ -281,8 +282,12 @@ class Engine(object):
             sur_loss = criterion[0](hazards=hazards, S=S, Y=label, c=c)
             
             combined_features = torch.cat((P_hat, G_hat), dim=1)
-            features = self.classifier_model(inputs_embeds=combined_features).last_hidden_state[:, 0, :]  # 使用[CLS]token
+            combined_features=combined_features.unsqueeze(1)
+            # combined_features=self.projector(combined_features)
+            features = self.classifier_model.text_model(inputs_embeds=combined_features).last_hidden_state[:, 0, :]  # 使用[CLS]token
+            features = features.squeeze(1)
             risk_predictions = self.classification_head(features)
+            risk_predictions = (risk_predictions > 0.5).long()
 
             risk = -torch.sum(S, dim=1).detach().cpu().numpy()
             print("risk: ",risk)
