@@ -161,7 +161,8 @@ class Engine(object):
                 print("Successfully downloaded and loaded pretrained model")
             except Exception as e:
                 raise Exception(f"Failed to load or download pretrained model: {e}")
-        print(self.classifier_model.config)       
+        print(self.classifier_model.config)   
+        print(self.classifier_model)    
         self.classification_head = nn.Sequential(
                 nn.Linear(self.classifier_model.config.projection_dim, 512),
                 nn.ReLU(),
