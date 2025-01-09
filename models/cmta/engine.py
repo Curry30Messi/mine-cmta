@@ -163,7 +163,7 @@ class Engine(object):
                 raise Exception(f"Failed to load or download pretrained model: {e}")
         print(self.classifier_model.config)       
         self.classification_head = nn.Sequential(
-                nn.Linear(self.classifier_model.config.hidden_size, 512),
+                nn.Linear(self.classifier_model.config.projection_dim, 512),
                 nn.ReLU(),
                 nn.Dropout(0.1),
                 nn.Linear(512, 2)  # 二分类
