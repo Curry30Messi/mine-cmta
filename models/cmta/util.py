@@ -194,6 +194,10 @@ class NystromAttention(nn.Module):
             kernel_size = residual_conv_kernel
             padding = residual_conv_kernel // 2
             self.res_conv = nn.Conv2d(heads, heads, (kernel_size, 1), padding=(padding, 0), groups=heads, bias=False)
+        self.attention_weights = None 
+        
+    def get_attention_weights(self):
+        return self.attention_weights
 
     def forward(self, x, mask=None, return_attn=False):
         b, n, _, h, m, iters, eps = *x.shape, self.heads, self.num_landmarks, self.pinv_iterations, self.eps
@@ -277,7 +281,7 @@ class NystromAttention(nn.Module):
         if return_attn:
             attn = attn1 @ attn2_inv @ attn3
             return out, attn
-
+        self.attention_weights = attn1 @ attn2_inv @ attn3
         return out
 
 

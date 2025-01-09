@@ -1,6 +1,8 @@
 import os
 import numpy as np
 from tqdm import tqdm
+from transformers import AutoModel
+import torch.nn as nn
 from fvcore.nn import FlopCountAnalysis, parameter_count_table
 from sksurv.metrics import concordance_index_censored
 from thop import profile, clever_format
@@ -133,6 +135,52 @@ class Engine(object):
         self.best_epoch = 0
         self.filename_best = None
         self.time = None
+                # 添加分类头
+        cache_dir = os.path.join(results_dir, 'pretrained_models')
+        os.makedirs(cache_dir, exist_ok=True)
+    
+        try:
+            # 第一次尝试：直接从本地加载
+            print("Attempting to load pretrained model from local cache...")
+            self.classifier_model = AutoModel.from_pretrained(
+                "openai/clip-vit-base-patch32",
+                cache_dir=cache_dir,
+                local_files_only=True
+            )
+            print("Successfully loaded pretrained model from local cache")
+        except Exception as e:
+            print(f"Local load failed: {e}")
+            try:
+                # 第二次尝试：允许从网络下载
+                print("Attempting to download pretrained model...")
+                self.classifier_model = AutoModel.from_pretrained(
+                    "openai/clip-vit-base-patch32",
+                    cache_dir=cache_dir,
+                    local_files_only=False
+                )
+                print("Successfully downloaded and loaded pretrained model")
+            except Exception as e:
+                raise Exception(f"Failed to load or download pretrained model: {e}")
+                
+        self.classification_head = nn.Sequential(
+                nn.Linear(self.classifier_model.config.hidden_size, 512),
+                nn.ReLU(),
+                nn.Dropout(0.1),
+                nn.Linear(512, 2)  # 二分类
+            )
+            
+        # 冻结部分预训练模型参数
+        for param in self.classifier_model.parameters():
+            param.requires_grad = False
+        # 只微调最后几层
+        for param in self.classifier_model.encoder.layer[-2:].parameters():
+            param.requires_grad = True
+            
+        if torch.cuda.is_available():
+            self.classifier_model = self.classifier_model.cuda()
+            self.classification_head = self.classification_head.cuda()
+            
+        self.classification_criterion = nn.CrossEntropyLoss()
 
 
     def learning(self, temp_time,model, train_loader, val_loader, criterion, optimizer, scheduler,dataset):
@@ -184,7 +232,7 @@ class Engine(object):
             if scheduler is not None:
                 scheduler.step()
             print('>')
-        plot_loss_index(train_loss_all, train_index_all, val_loss_all, val_index_all, self.results_dir,self.fold)
+        # plot_loss_index(train_loss_all, train_index_all, val_loss_all, val_index_all, self.results_dir,self.fold)
         return self.best_score, self.best_epoch
 
     def random_mask_features(features, mask_prob):
@@ -202,6 +250,8 @@ class Engine(object):
     def train(self, data_loader, model, criterion, optimizer,epoch,dataset):
 
         model.train()
+        self.classifier_model.train()
+        self.classification_head.train()
         train_loss = 0.0
         all_risk_scores = np.zeros((len(data_loader)))
         all_censorships = np.zeros((len(data_loader)))
@@ -228,6 +278,19 @@ class Engine(object):
 
             # survival loss + sim loss + sim loss
             sur_loss = criterion[0](hazards=hazards, S=S, Y=label, c=c)
+            
+            combined_features = torch.cat((P_hat, G_hat), dim=1)
+            features = self.classifier_model(inputs_embeds=combined_features).last_hidden_state[:, 0, :]  # 使用[CLS]token
+            risk_predictions = self.classification_head(features)
+
+            risk = -torch.sum(S, dim=1).detach().cpu().numpy()
+            print("risk: ",risk)
+            risk_labels = (risk > 0.5).long()
+            print("risk_labels: ",risk_labels)
+            print("risk_predictions: ",risk_predictions)
+            classification_loss = self.classification_criterion(risk_predictions, risk_labels)
+            print("classification_loss: ",classification_loss)
+
 
             print("Hazards:\n", hazards)
             if hasattr(hazards, 'shape'):
@@ -238,7 +301,7 @@ class Engine(object):
 
             sim_loss_P = criterion[1](P.detach(), P_hat)
             sim_loss_G = criterion[1](G.detach(), G_hat)
-            loss = sur_loss + self.args.alpha * (sim_loss_P + sim_loss_G)
+            loss = sur_loss + self.args.alpha * (sim_loss_P + sim_loss_G)+classification_loss
 
 
             if self.args.MoELoss:
@@ -247,10 +310,13 @@ class Engine(object):
             # print("loss:",loss)
             # print("sur_loss:",sur_loss)
             # print("self.args.alpha * (sim_loss_P + sim_loss_G)",self.args.alpha * (sim_loss_P + sim_loss_G))
-            risk = -torch.sum(S, dim=1).detach().cpu().numpy()
+
             all_risk_scores[batch_idx] = risk
             all_censorships[batch_idx] = c.item()
             all_event_times[batch_idx] = event_time
+
+            print("event_time: ",event_time)
+
             train_loss += loss.item()
 
             # =======================================
@@ -308,11 +374,11 @@ class Engine(object):
                 # 将 inputs 参数改为字典传入 profile
                 wrapped_model = ModelWrapper(model)
                 flops = FlopCountAnalysis(wrapped_model, (input_data,))
-                print(f"FLOPs: {flops.total()}")
+                # print(f"FLOPs: {flops.total()}")
 
                 # 使用 fvcore 计算参数量
                 params = parameter_count_table(model)
-                print(f"参数量：\n{params}")
+                # print(f"参数量：\n{params}")
 
 
 
@@ -427,7 +493,9 @@ class Engine(object):
                                                        x_omic3=data_omic3,
                                                        x_omic4=data_omic4, x_omic5=data_omic5,
                                                        x_omic6=data_omic6)  # return hazards, S, Y_hat, A_raw, results_dict
-
+                
+            attn_weights = model.pathomics_encoder.layer1.attn.get_attention_weights()
+            print("attn_weights: ",attn_weights.shape)
             # survival loss + sim loss + sim loss
             sur_loss = criterion[0](hazards=hazards, S=S, Y=label, c=c)
             sim_loss_P = criterion[1](P.detach(), P_hat)
@@ -439,7 +507,9 @@ class Engine(object):
             # print("loss:",loss)
             # print("sur_loss:",sur_loss)
             # print("self.args.alpha * (sim_loss_P + sim_loss_G)",self.args.alpha * (sim_loss_P + sim_loss_G))
+            print("S: ",S)
             risk = -torch.sum(S, dim=1).cpu().numpy()
+            print("risk: ",risk)
             all_risk_scores[batch_idx] = risk
             all_censorships[batch_idx] = c.cpu().numpy()
             all_event_times[batch_idx] = event_time
