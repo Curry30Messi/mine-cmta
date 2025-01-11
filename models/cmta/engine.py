@@ -16,6 +16,7 @@ from hypll.optim import RiemannianAdam
 import matplotlib.pyplot as plt
 import datetime
 from lifelines.statistics import logrank_test
+from matplotlib import gridspec
 
 def get_time():
     return datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -504,6 +505,35 @@ class Engine(object):
                 
             attn_weights = model.pathomics_encoder.layer1.attn.get_attention_weights()
             print("attn_weights: ",attn_weights.shape)
+            attn_weights = attn_weights.squeeze(0)
+            fig = plt.figure(figsize=(20, 12), dpi=300)
+            spec = gridspec.GridSpec(2, 5, width_ratios=[1, 1, 1, 1, 0.1], wspace=0.3, hspace=0.3)  # 4子图+1 colorbar列
+
+            vmin, vmax = attn_weights.min().item(), attn_weights.max().item()  # 获取全局最小值和最大值，用于统一色标
+
+            # 绘制子图
+            axes = []
+            for i in range(attn_weights.shape[0]):
+                row, col = divmod(i, 4)  # 2 行 4 列
+                ax = fig.add_subplot(spec[row, col])
+                attn_map = attn_weights[i].detach().cpu().numpy()  # 转为 NumPy 数组
+                im = ax.imshow(attn_map, cmap="hot", interpolation="nearest", vmin=vmin, vmax=vmax)  # 统一颜色范围
+                ax.set_title(f"Head {i}", fontsize=10)
+                ax.set_xlabel("Token", fontsize=8)
+                ax.set_ylabel("Token", fontsize=8)
+                axes.append(ax)
+
+            # 添加统一的颜色条
+            cbar_ax = fig.add_subplot(spec[:, 4])  # 在右侧预留一列用于颜色条
+            cbar = fig.colorbar(im, cax=cbar_ax)
+            cbar.set_label("Attention Weight", fontsize=12)
+            output_dir = f'results_heatmap/_{dataset}/_{self.time}_alpha{self.args.alpha}_modality{self.args.modality}_Rate{self.args.Rate}_epoch{self.args.num_epoch}/test'
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir,  f"__{self.fold}__.png")
+            plt.savefig(output_path, dpi=600)
+            plt.close(fig)
+
+
             # survival loss + sim loss + sim loss
             sur_loss = criterion[0](hazards=hazards, S=S, Y=label, c=c)
             sim_loss_P = criterion[1](P.detach(), P_hat)
