@@ -281,21 +281,22 @@ class Engine(object):
             # survival loss + sim loss + sim loss
             sur_loss = criterion[0](hazards=hazards, S=S, Y=label, c=c)
             
-            combined_features = torch.cat((P_hat, G_hat), dim=1)
-            combined_features=combined_features.unsqueeze(1)
-            # combined_features=self.projector(combined_features)
-            features = self.classifier_model.text_model(inputs_embeds=combined_features).last_hidden_state[:, 0, :]  # 使用[CLS]token
-            features = features.squeeze(1)
-            risk_predictions = self.classification_head(features)
-            risk_predictions = (risk_predictions > 0.5).long()
+            # combined_features = torch.cat((P_hat, G_hat), dim=1)
+            # combined_features=combined_features.unsqueeze(1)
+            # # combined_features=self.projector(combined_features)
+            # features = self.classifier_model.text_model(inputs_embeds=combined_features).last_hidden_state[:, 0, :]  # 使用[CLS]token
+            # features = features.squeeze(1)
+            # risk_predictions = self.classification_head(features)
+            # risk_predictions = (risk_predictions > 0.5).long()
 
             risk = -torch.sum(S, dim=1).detach().cpu().numpy()
-            print("risk: ",risk)
-            risk_labels = (risk > 0.5).long()
-            print("risk_labels: ",risk_labels)
-            print("risk_predictions: ",risk_predictions)
-            classification_loss = self.classification_criterion(risk_predictions, risk_labels)
-            print("classification_loss: ",classification_loss)
+
+            # print("risk: ",risk)
+            # risk_labels = (risk > 0.5).long()
+            # print("risk_labels: ",risk_labels)
+            # print("risk_predictions: ",risk_predictions)
+            # classification_loss = self.classification_criterion(risk_predictions, risk_labels)
+            # print("classification_loss: ",classification_loss)
 
 
             print("Hazards:\n", hazards)
@@ -307,7 +308,8 @@ class Engine(object):
 
             sim_loss_P = criterion[1](P.detach(), P_hat)
             sim_loss_G = criterion[1](G.detach(), G_hat)
-            loss = sur_loss + self.args.alpha * (sim_loss_P + sim_loss_G)+classification_loss
+            loss = sur_loss + self.args.alpha * (sim_loss_P + sim_loss_G)
+            # loss = sur_loss + self.args.alpha * (sim_loss_P + sim_loss_G)+classification_loss
 
 
             if self.args.MoELoss:
